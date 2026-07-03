@@ -1,0 +1,15 @@
+Telegram Watch Updates
+↓
+Telegram Download a File
+↓
+HTTP POST /api/process-video
+↓
+HTTP Get audio_url
+↓
+OpenAI Transcribe
+↓
+OpenAI Analyse Vision avec frames
+↓
+OpenAI Analyse finale
+↓
+Telegram Send Message
