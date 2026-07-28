@@ -1,6 +1,27 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Environnement virtuel
+.venv/
+venv/
+
+# Secrets
 .env
+.env.*
+
+# Fichiers générés par ViralCoach
+uploads/
+audio/
+frames/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Fichiers temporaires
 work/
 public/
 .DS_Store
