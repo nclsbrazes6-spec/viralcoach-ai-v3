@@ -6,3 +6,4 @@ requests==2.32.3
 faster-whisper
 opencv-python-headless
 numpy
+google-genai

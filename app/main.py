@@ -9,6 +9,7 @@ from app.services.transcriber import transcribe
 from app.services.analyzer import analyze_transcription
 from app.services.visual_analyzer import analyze_frames
 from app.services.report_builder import build_final_report
+from app.services.gemini_vision import analyze_video_semantics
 
 
 app = FastAPI(
@@ -127,14 +128,90 @@ async def upload_video(
             analyze_transcription(
                 transcription
             )
-        )
 
+        )
+        analyse_semantique = analyze_video_semantics(
+        frame_paths=frames,
+            transcription=transcription,
+        )
         # Fusion des analyses
         rapport_final = build_final_report(
             transcription=transcription,
             text_analysis=analyse_transcription,
             visual_analysis=analyse_visuelle,
         )
+
+        if analyse_semantique.get("disponible"):
+            rapport_final.update(
+                {
+                    "score_viral_global": (
+                        analyse_semantique.get(
+                            "score_potentiel_viral",
+                            0,
+                        )
+                    ),
+                    "verdict": (
+                        analyse_semantique.get(
+                            "resume_video",
+                            "",
+                        )
+                    ),
+                    "sujet_principal": (
+                        analyse_semantique.get(
+                            "sujet_principal",
+                            "",
+                        )
+                    ),
+                    "hook_visuel": (
+                        analyse_semantique.get(
+                            "hook_visuel",
+                            "",
+                        )
+                    ),
+                    "points_forts": (
+                        analyse_semantique.get(
+                            "points_forts",
+                            [],
+                        )
+                    ),
+                    "points_faibles": (
+                        analyse_semantique.get(
+                            "points_faibles",
+                            [],
+                        )
+                    ),
+                    "priorites": (
+                        analyse_semantique.get(
+                            "priorites",
+                            [],
+                        )
+                    ),
+                    "recommandations": (
+                        analyse_semantique.get(
+                            "recommandations",
+                            [],
+                        )
+                    ),
+                    "hooks_ameliores": (
+                        analyse_semantique.get(
+                            "hooks_ameliores",
+                            [],
+                        )
+                    ),
+                    "description_tiktok": (
+                        analyse_semantique.get(
+                            "description_tiktok",
+                            "",
+                        )
+                    ),
+                    "hashtags": (
+                        analyse_semantique.get(
+                            "hashtags",
+                            [],
+                        )
+                    ),
+                }
+            )
 
         return {
             "success": True,
