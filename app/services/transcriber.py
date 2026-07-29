@@ -12,7 +12,7 @@ HALLUCINATIONS = {
 
 
 model = WhisperModel(
-    "tiny",
+    "base",
     device="cpu",
     compute_type="int8",
 )
