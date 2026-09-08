@@ -4,4 +4,3 @@ python-multipart
 google-genai
 openai
 requests
-faster-whisper
