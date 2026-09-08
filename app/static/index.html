@@ -1,0 +1,3679 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>ViralCoach AI V5.4</title>
+
+    <style>
+        :root {
+            --background: #07111f;
+            --panel: #101d2d;
+            --panel-light: #15263a;
+            --border: #293d55;
+            --text: #f4f7fb;
+            --muted: #99aabd;
+            --green: #6ef0bd;
+            --blue: #70aaff;
+            --orange: #ffcc66;
+            --red: #ff7b7b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+
+            background:
+                radial-gradient(
+                    circle at 15% 0,
+                    #15324b 0,
+                    transparent 35%
+                ),
+                var(--background);
+
+            font-family:
+                Inter,
+                Arial,
+                sans-serif;
+        }
+
+        .container {
+            width: min(
+                1160px,
+                calc(100% - 32px)
+            );
+
+            margin: auto;
+
+            padding:
+                32px
+                0
+                70px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .logo span {
+            color: var(--green);
+        }
+
+        .version {
+            padding: 7px 12px;
+
+            color: var(--green);
+            background: #102a2b;
+
+            border: 1px solid #315f59;
+            border-radius: 999px;
+
+            font-size: 12px;
+        }
+
+        .hero {
+            display: grid;
+
+            grid-template-columns:
+                1.2fr
+                0.8fr;
+
+            gap: 22px;
+        }
+
+        .panel {
+            padding: 28px;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    var(--panel-light),
+                    var(--panel)
+                );
+
+            border: 1px solid var(--border);
+
+            border-radius: 22px;
+
+            box-shadow:
+                0
+                18px
+                60px
+                #0005;
+        }
+
+        .label {
+            margin-bottom: 10px;
+
+            color: var(--green);
+
+            font-size: 12px;
+            font-weight: 800;
+
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        h1 {
+            max-width: 720px;
+
+            margin:
+                0
+                0
+                16px;
+
+            font-size:
+                clamp(
+                    38px,
+                    5vw,
+                    62px
+                );
+
+            line-height: 1.03;
+            letter-spacing: -2px;
+        }
+
+        h1 span {
+            color: var(--green);
+        }
+
+        h2 {
+            margin:
+                0
+                0
+                12px;
+
+            font-size: 24px;
+        }
+
+        p {
+            color: var(--muted);
+        }
+.download-remix-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-top: 18px;
+    padding: 14px 22px;
+
+    border-radius: 12px;
+    border: none;
+
+    background: linear-gradient(
+        135deg,
+        #7c3aed,
+        #2563eb
+    );
+
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.download-remix-button:hover {
+    transform: translateY(-2px);
+    opacity: 0.92;
+}
+        /* ==================================================
+           UPLOAD
+        ================================================== */
+
+        .upload-zone {
+            min-height: 220px;
+
+            padding: 24px;
+
+            display: flex;
+            flex-direction: column;
+
+            align-items: center;
+            justify-content: center;
+
+            text-align: center;
+
+            border:
+                2px
+                dashed
+                #496681;
+
+            border-radius: 16px;
+
+            cursor: pointer;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--green);
+
+            background: #6ef0bd0c;
+        }
+
+        .upload-icon {
+            margin-bottom: 8px;
+
+            font-size: 40px;
+        }
+
+        .filename {
+            margin-top: 10px;
+
+            color: var(--green);
+
+            word-break: break-word;
+        }
+
+        button {
+            width: 100%;
+
+            margin-top: 14px;
+
+            padding: 14px;
+
+            color: #062018;
+
+            background: var(--green);
+
+            border: 0;
+            border-radius: 12px;
+
+            font-size: 15px;
+            font-weight: 800;
+
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+
+            margin-top: 14px;
+
+            color: var(--green);
+
+            text-align: center;
+        }
+
+        .error {
+            display: none;
+
+            margin-top: 14px;
+
+            padding: 12px;
+
+            color: #ffd6d6;
+            background: #4b2027;
+
+            border:
+                1px
+                solid
+                #753540;
+
+            border-radius: 10px;
+        }
+
+        /* ==================================================
+           RESULTATS
+        ================================================== */
+
+        #results {
+            display: none;
+
+            margin-top: 24px;
+        }
+
+        .summary {
+            display: grid;
+
+            grid-template-columns:
+                1fr
+                2fr;
+
+            gap: 22px;
+        }
+
+        /* ==================================================
+           SCORE VIRALCOACH
+        ================================================== */
+
+        .score-box {
+            display: flex;
+
+            align-items: center;
+
+            gap: 22px;
+        }
+
+        .score {
+            width: 130px;
+            height: 130px;
+
+            flex: 0 0 auto;
+
+            display: grid;
+
+            place-items: center;
+
+            padding: 6px;
+
+            color: var(--text);
+
+            background: #0a1726;
+
+            border:
+                10px
+                solid
+                var(--green);
+
+            border-radius: 50%;
+
+            font-size: 27px;
+            font-weight: 800;
+
+            text-align: center;
+        }
+
+        .verdict {
+            color: var(--green);
+
+            font-weight: 700;
+        }
+
+        /* ==================================================
+           METRIQUES /20
+        ================================================== */
+
+        .metrics {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    5,
+                    1fr
+                );
+
+            gap: 12px;
+        }
+
+        .metric {
+            min-width: 0;
+
+            padding: 18px 14px;
+
+            background: #0b1928;
+
+            border:
+                1px
+                solid
+                var(--border);
+
+            border-radius: 15px;
+        }
+
+        .metric span {
+            display: block;
+
+            margin-bottom: 5px;
+
+            color: var(--muted);
+
+            font-size: 12px;
+        }
+
+        .metric strong {
+            font-size: 23px;
+        }
+
+        /* ==================================================
+           GRILLE RESULTATS
+        ================================================== */
+
+        .grid {
+            display: grid;
+
+            grid-template-columns:
+                1fr
+                1fr;
+
+            gap: 22px;
+
+            margin-top: 22px;
+        }
+
+        .wide {
+            grid-column:
+                1 / -1;
+        }
+
+        .priority {
+            margin-top: 16px;
+
+            padding: 13px 15px;
+
+            color: #c5f7e4;
+            background: #0b1d26;
+
+            border-left:
+                3px
+                solid
+                var(--green);
+
+            border-radius:
+                0
+                12px
+                12px
+                0;
+        }
+
+        .list {
+            display: grid;
+
+            gap: 11px;
+
+            margin-top: 15px;
+        }
+
+        .item {
+            padding: 15px;
+
+            background: #0b1928;
+
+            border:
+                1px
+                solid
+                var(--border);
+
+            border-radius: 14px;
+        }
+
+        .item-header {
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            gap: 12px;
+        }
+
+        .timecode {
+            color: var(--orange);
+
+            font-weight: 800;
+        }
+
+        .risk {
+            color: var(--red);
+
+            font-size: 12px;
+
+            text-transform: uppercase;
+        }
+
+        .recommendation {
+            color: var(--green);
+
+            font-size: 13px;
+        }
+
+        ol {
+            padding-left: 22px;
+        }
+
+        li {
+            padding: 6px;
+
+            color: #dce5ef;
+        }
+
+        .description {
+            padding: 16px;
+
+            white-space: pre-wrap;
+
+            background: #0b1928;
+
+            border:
+                1px
+                solid
+                var(--border);
+
+            border-radius: 14px;
+        }
+
+        .hashtags {
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 8px;
+
+            margin-top: 14px;
+        }
+
+        .hashtag {
+            padding: 6px 10px;
+
+            color: var(--green);
+            background: #102a2b;
+
+            border:
+                1px
+                solid
+                #315f59;
+
+            border-radius: 999px;
+        }
+
+        .empty {
+            color: var(--muted);
+
+            font-style: italic;
+        }
+
+        /* ==================================================
+           TIMELINE
+        ================================================== */
+
+        .timeline-heading {
+            display: flex;
+
+            align-items: flex-start;
+
+            justify-content:
+                space-between;
+
+            gap: 20px;
+        }
+
+        .timeline-stats {
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 8px;
+        }
+
+        .timeline-stats span {
+            padding: 7px 11px;
+
+            color: var(--muted);
+            background: #0b1928;
+
+            border:
+                1px
+                solid
+                var(--border);
+
+            border-radius: 999px;
+
+            font-size: 12px;
+        }
+
+        .timeline-stats strong {
+            color: var(--text);
+        }
+
+        .timeline-stats .high-stat {
+            color: #ff9b9b;
+
+            border-color: #683640;
+        }
+
+        .timeline-legend {
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 18px;
+
+            margin:
+                5px
+                0
+                20px;
+
+            color: var(--muted);
+
+            font-size: 12px;
+        }
+
+        .timeline-legend span {
+            display: flex;
+
+            align-items: center;
+
+            gap: 7px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+
+            background: var(--orange);
+
+            border-radius: 50%;
+        }
+
+        .legend-dot.high {
+            background: var(--red);
+        }
+
+        .timeline-track {
+            position: relative;
+
+            display: grid;
+
+            gap: 13px;
+        }
+
+        .timeline-track::before {
+            content: "";
+
+            position: absolute;
+
+            top: 20px;
+            bottom: 20px;
+            left: 18px;
+
+            width: 2px;
+
+            background: #2c4259;
+        }
+
+        .timeline-entry {
+            position: relative;
+
+            display: grid;
+
+            grid-template-columns:
+                38px
+                1fr;
+
+            gap: 15px;
+        }
+
+        .timeline-number {
+            position: relative;
+
+            z-index: 1;
+
+            padding-top: 17px;
+        }
+
+        .timeline-number span {
+            width: 36px;
+            height: 36px;
+
+            display: grid;
+
+            place-items: center;
+
+            color: var(--text);
+            background: #15293d;
+
+            border:
+                2px
+                solid
+                var(--orange);
+
+            border-radius: 50%;
+
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .timeline-entry.high
+        .timeline-number span {
+            border-color: var(--red);
+        }
+
+        .timeline-content {
+            padding: 17px;
+
+            background: #0b1928;
+
+            border:
+                1px
+                solid
+                var(--border);
+
+            border-left:
+                3px
+                solid
+                var(--orange);
+
+            border-radius: 14px;
+        }
+
+        .timeline-entry.high
+        .timeline-content {
+            border-left-color: var(--red);
+        }
+
+        .timeline-entry-header {
+            display: flex;
+
+            align-items: center;
+
+            justify-content:
+                space-between;
+
+            gap: 15px;
+        }
+
+        .timeline-time {
+            color: var(--orange);
+
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .timeline-duration {
+            margin-left: 9px;
+
+            padding: 3px 7px;
+
+            color: var(--muted);
+            background: #172b40;
+
+            border-radius: 7px;
+
+            font-size: 11px;
+        }
+
+        .timeline-risk {
+            padding: 4px 9px;
+
+            color: var(--orange);
+            background: #3c3020;
+
+            border-radius: 999px;
+
+            font-size: 11px;
+
+            text-transform: uppercase;
+        }
+
+        .timeline-risk.high {
+            color: #ff9b9b;
+            background: #3b2028;
+        }
+
+        .timeline-diagnostic {
+            margin:
+                10px
+                0;
+
+            color: #d7e1ec;
+        }
+
+        .timeline-action {
+            display: grid;
+
+            grid-template-columns:
+                auto
+                1fr;
+
+            gap: 10px;
+
+            margin-top: 13px;
+
+            padding-top: 13px;
+
+            color: var(--green);
+
+            border-top:
+                1px
+                solid
+                var(--border);
+
+            font-size: 13px;
+        }
+
+        .timeline-action strong {
+            margin-top: 3px;
+
+            font-size: 10px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+        }
+
+        /* ==================================================
+           PLAN DE REMONTAGE IA V5.4
+        ================================================== */
+
+        .remontage-summary {
+            margin: 0 0 18px;
+
+            padding: 13px 15px;
+
+            color: #c5f7e4;
+            background: #0b1d26;
+
+            border: 1px solid #24483f;
+            border-radius: 12px;
+        }
+
+        .remontage-grid {
+            display: grid;
+            gap: 14px;
+        }
+
+        .remontage-card {
+            padding: 18px;
+
+            background: #0b1928;
+
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--orange);
+
+            border-radius: 14px;
+        }
+
+        .remontage-card.high {
+            border-left-color: var(--red);
+        }
+
+        .remontage-card.low {
+            border-left-color: var(--green);
+        }
+
+        .remontage-header {
+            display: flex;
+
+            align-items: flex-start;
+            justify-content: space-between;
+
+            gap: 16px;
+
+            margin-bottom: 12px;
+        }
+
+        .remontage-time {
+            color: var(--orange);
+
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .remontage-priority {
+            padding: 5px 9px;
+
+            color: var(--orange);
+            background: #3c3020;
+
+            border-radius: 999px;
+
+            font-size: 11px;
+            font-weight: 800;
+
+            text-transform: uppercase;
+        }
+
+        .remontage-priority.high {
+            color: #ff9b9b;
+            background: #3b2028;
+        }
+
+        .remontage-priority.low {
+            color: var(--green);
+            background: #102a2b;
+        }
+
+        .remontage-actions {
+            display: flex;
+            flex-wrap: wrap;
+
+            gap: 8px;
+
+            margin: 10px 0 14px;
+        }
+
+        .remontage-action-chip {
+            padding: 6px 9px;
+
+            color: #dce5ef;
+            background: #172b40;
+
+            border: 1px solid #30465e;
+            border-radius: 999px;
+
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .remontage-row {
+            display: grid;
+
+            grid-template-columns:
+                135px
+                1fr;
+
+            gap: 12px;
+
+            padding: 10px 0;
+
+            border-top:
+                1px
+                solid
+                var(--border);
+        }
+
+        .remontage-row:first-of-type {
+            border-top: 0;
+        }
+
+        .remontage-row strong {
+            color: var(--muted);
+
+            font-size: 11px;
+
+            text-transform: uppercase;
+            letter-spacing: .7px;
+        }
+
+        .remontage-row span {
+            color: #dce5ef;
+        }
+
+        .remontage-row.text-screen span {
+            color: var(--green);
+
+            font-weight: 700;
+        }
+
+        /* ==================================================
+           V5.3 — DÉCISIONS / SYNTHÈSE
+        ================================================== */
+
+        .remontage-overview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 0 0 16px;
+        }
+
+        .remontage-stat {
+            padding: 12px 14px;
+            background: #0b1928;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .remontage-stat span {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: 5px;
+        }
+
+        .remontage-stat strong {
+            color: var(--text);
+            font-size: 18px;
+        }
+
+        .hook-candidate {
+            margin: 0 0 18px;
+            padding: 14px 16px;
+            background: #102a2b;
+            border: 1px solid #315f59;
+            border-radius: 12px;
+        }
+
+        .hook-candidate strong {
+            color: var(--green);
+        }
+
+        .decision-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .4px;
+        }
+
+        .decision-conserver {
+            color: var(--green);
+            background: #102a2b;
+            border: 1px solid #315f59;
+        }
+
+        .decision-couper {
+            color: #ff9b9b;
+            background: #3b2028;
+            border: 1px solid #683640;
+        }
+
+        .decision-raccourcir {
+            color: var(--orange);
+            background: #3c3020;
+            border: 1px solid #6f5929;
+        }
+
+        .decision-accelerer {
+            color: var(--blue);
+            background: #15283f;
+            border: 1px solid #31547f;
+        }
+
+        .decision-renforcer {
+            color: #d6b7ff;
+            background: #2a203a;
+            border: 1px solid #5a4478;
+        }
+
+
+        /* ==================================================
+           V5.4 — ANALYSE SÉMANTIQUE
+        ================================================== */
+
+        .semantic-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 9px;
+            margin-left: 6px;
+            color: #d6b7ff;
+            background: #2a203a;
+            border: 1px solid #5a4478;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .4px;
+        }
+
+        .semantic-row span {
+            color: #e5d4ff;
+        }
+
+        .semantic-score span {
+            color: #d6b7ff;
+            font-weight: 800;
+        }
+
+        .semantic-message span {
+            color: var(--green);
+            font-weight: 700;
+        }
+
+        .semantic-problem span {
+            color: var(--orange);
+        }
+
+        /* ==================================================
+           RESPONSIVE
+        ================================================== */
+
+        @media (max-width: 900px) {
+            .hero,
+            .summary,
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metrics {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        1fr
+                    );
+            }
+
+            .wide {
+                grid-column: auto;
+            }
+
+            .remontage-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 520px) {
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+
+            .score-box {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .remontage-row {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+
+            .timeline-heading {
+                flex-direction: column;
+            }
+
+            .remontage-overview {
+                grid-template-columns: 1fr;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <main class="container">
+
+        <!-- =================================================
+             EN-TÊTE
+        ================================================== -->
+
+        <header>
+
+            <div class="logo">
+                ViralCoach <span>AI</span>
+            </div>
+
+            <div class="version">
+                Rapport V5.4
+            </div>
+
+        </header>
+
+
+        <!-- =================================================
+             HERO / UPLOAD
+        ================================================== -->
+
+        <section class="hero">
+
+            <article class="panel">
+
+                <div class="label">
+                    Analyse vidéo intelligente
+                </div>
+
+                <h1>
+                    Transforme ta vidéo en contenu
+                    <span>plus captivant.</span>
+                </h1>
+
+                <p>
+                    ViralCoach analyse le hook, le contenu,
+                    le visuel, le rythme et la rétention,
+                    puis construit un plan d'amélioration concret.
+                </p>
+
+            </article>
+
+
+            <article class="panel">
+
+                <label class="upload-zone">
+
+                    <input
+                        id="videoInput"
+                        type="file"
+                        accept="video/mp4,video/*"
+                        hidden
+                    >
+
+                    <div class="upload-icon">
+                        ↥
+                    </div>
+
+                    <strong>
+                        Sélectionne ta vidéo
+                    </strong>
+
+                    <p>
+                        Clique ici pour choisir un fichier MP4
+                    </p>
+
+                    <div
+                        class="filename"
+                        id="filename"
+                    ></div>
+
+                </label>
+
+
+                <button
+                    id="analyzeButton"
+                    disabled
+                >
+                    Analyser la vidéo
+                </button>
+
+
+                <div
+                    class="loading"
+                    id="loading"
+                >
+                    Analyse en cours, merci de patienter…
+                </div>
+
+
+                <div
+                    class="error"
+                    id="error"
+                ></div>
+
+            </article>
+
+        </section>
+
+
+        <!-- =================================================
+             RÉSULTATS
+        ================================================== -->
+
+        <section id="results">
+
+            <div class="summary">
+
+                <!-- SCORE -->
+
+                <article class="panel score-box">
+
+                    <div
+                        class="score"
+                        id="globalScore"
+                    >
+                        —
+                    </div>
+
+                    <div>
+
+                        <div class="label">
+                            Score ViralCoach
+                        </div>
+
+                        <h2 id="verdict">
+                            Analyse terminée
+                        </h2>
+
+                        <div
+                            class="verdict"
+                            id="retentionLevel"
+                        ></div>
+
+                    </div>
+
+                </article>
+
+
+                <!-- MÉTRIQUES -->
+
+                <article class="panel metrics">
+
+                    <div class="metric">
+                        <span>Hook</span>
+
+                        <strong id="hookScore">
+                            —
+                        </strong>
+                    </div>
+
+
+                    <div class="metric">
+                        <span>Contenu</span>
+
+                        <strong id="contentScore">
+                            —
+                        </strong>
+                    </div>
+
+
+                    <div class="metric">
+                        <span>Visuel</span>
+
+                        <strong id="visualScore">
+                            —
+                        </strong>
+                    </div>
+
+
+                    <div class="metric">
+                        <span>Rythme</span>
+
+                        <strong id="rhythmScore">
+                            —
+                        </strong>
+                    </div>
+
+
+                    <div class="metric">
+                        <span>Rétention</span>
+
+                        <strong id="retentionScore">
+                            —
+                        </strong>
+                    </div>
+
+                </article>
+
+            </div>
+
+
+            <div class="grid">
+
+                <!-- =================================================
+                     OUVERTURE
+                ================================================== -->
+
+                <article class="panel wide">
+
+                    <div class="label">
+                        Les trois premières secondes
+                    </div>
+
+                    <h2>
+                        Diagnostic de l'ouverture
+                    </h2>
+
+                    <p id="openingDiagnostic"></p>
+
+                    <div
+                        class="priority"
+                        id="openingPriority"
+                    ></div>
+
+                </article>
+
+
+                <!-- =================================================
+                     TIMELINE
+                ================================================== -->
+
+                <article class="panel wide">
+
+                    <div class="label">
+                        Timeline
+                    </div>
+
+
+                    <div class="timeline-heading">
+
+                        <h2>
+                            Passages à retravailler
+                        </h2>
+
+
+                        <div class="timeline-stats">
+
+                            <span>
+                                <strong id="riskTotal">
+                                    0
+                                </strong>
+                                passages
+                            </span>
+
+
+                            <span class="high-stat">
+                                <strong id="riskHigh">
+                                    0
+                                </strong>
+                                prioritaires
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="timeline-legend">
+
+                        <span>
+                            <i class="legend-dot high"></i>
+                            Risque élevé
+                        </span>
+
+                        <span>
+                            <i class="legend-dot"></i>
+                            Risque moyen
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        class="timeline-track"
+                        id="riskList"
+                    ></div>
+
+                </article>
+
+
+                <!-- =================================================
+                     HOOKS
+                ================================================== -->
+
+                <article class="panel">
+
+                    <div class="label">
+                        Accroches
+                    </div>
+
+                    <h2>
+                        Trois hooks améliorés
+                    </h2>
+
+                    <div
+                        class="list"
+                        id="hookList"
+                    ></div>
+
+                </article>
+
+
+                <!-- =================================================
+                     INFORMATIONS VIDÉO
+                ================================================== -->
+
+                <article class="panel">
+
+                    <div class="label">
+                        Analyse
+                    </div>
+
+                    <h2>
+                        Optimisation TikTok / Reels
+                    </h2>
+
+                    <p>
+                        Le plan de remontage ci-dessous découpe
+                        automatiquement la vidéo en séquences afin
+                        d'identifier les moments à conserver,
+                        renforcer ou accélérer.
+                    </p>
+
+                    <div class="priority">
+                        Objectif : maximiser l'attention et limiter
+                        les décrochages pendant toute la vidéo.
+                    </div>
+
+                </article>
+
+
+                <!-- =================================================
+                     REMONTAGE IA V5.4
+                ================================================== -->
+
+                <article class="panel wide">
+
+                    <div class="label">
+                        Remontage IA V5.4
+                    </div>
+
+                    <h2>
+                        Plan de remontage seconde par seconde
+                    </h2>
+
+                    <p
+                        class="remontage-summary"
+                        id="remontageSummary"
+                    >
+                        Le plan détaillé apparaîtra après l'analyse.
+                    </p>
+
+                    <div
+                        class="remontage-overview"
+                        id="remontageOverview"
+                    ></div>
+
+                    <div
+                        class="hook-candidate"
+                        id="hookCandidate"
+                        style="display:none;"
+                    ></div>
+
+                    <div
+                        class="remontage-grid"
+                        id="editingPlan"
+                    ></div>
+
+                </article>
+
+<!-- =================================================
+     VIDÉO REMONTÉE V3
+================================================== -->
+
+<article
+    class="panel wide"
+    id="remixVideoPanel"
+    style="display: none;"
+>
+    <div class="label">
+        Remix IA V3
+    </div>
+
+    <h2>
+        Ta vidéo optimisée est prête
+    </h2>
+
+    <p>
+        ViralCoach a créé une nouvelle version
+        à partir du plan de montage global.
+    </p>
+
+    <a
+        id="downloadRemixButton"
+        href="#"
+        class="download-remix-button"
+        download
+    >
+        ⬇ Télécharger la vidéo remontée
+    </a>
+</article>
+                <!-- =================================================
+                     PUBLICATION
+                ================================================== -->
+
+                <article class="panel wide">
+
+                    <div class="label">
+                        Publication
+                    </div>
+
+                    <h2>
+                        Prêt pour TikTok
+                    </h2>
+
+                    <div
+                        class="description"
+                        id="tiktokDescription"
+                    ></div>
+
+                    <div
+                        class="hashtags"
+                        id="hashtags"
+                    ></div>
+
+                </article>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         JAVASCRIPT VIRALCOACH V5.4
+
+         IMPORTANT :
+         tout le JavaScript est maintenant DANS cette balise.
+    ====================================================== -->
+
+    <script>
+
+        /* =====================================================
+           ÉLÉMENTS
+        ===================================================== */
+
+        const videoInput =
+            document.getElementById(
+                "videoInput"
+            );
+
+
+        const analyzeButton =
+            document.getElementById(
+                "analyzeButton"
+            );
+
+
+        const filename =
+            document.getElementById(
+                "filename"
+            );
+
+
+        const loading =
+            document.getElementById(
+                "loading"
+            );
+
+
+        const errorBox =
+            document.getElementById(
+                "error"
+            );
+
+
+        const results =
+            document.getElementById(
+                "results"
+            );
+
+
+        /* =====================================================
+           SÉLECTION VIDÉO
+        ===================================================== */
+
+        videoInput.addEventListener(
+            "change",
+            function () {
+
+                const video =
+                    videoInput.files[0];
+
+
+                if (!video) {
+
+                    analyzeButton.disabled =
+                        true;
+
+                    filename.textContent =
+                        "";
+
+                    return;
+                }
+
+
+                filename.textContent =
+                    video.name;
+
+
+                analyzeButton.disabled =
+                    false;
+            }
+        );
+
+
+        /* =====================================================
+           ANALYSE DE LA VIDÉO
+        ===================================================== */
+
+        analyzeButton.addEventListener(
+            "click",
+            async function () {
+
+                const video =
+                    videoInput.files[0];
+
+
+                if (!video) {
+                    return;
+                }
+
+
+                analyzeButton.disabled =
+                    true;
+
+
+                analyzeButton.textContent =
+                    "Analyse en cours…";
+
+
+                loading.style.display =
+                    "block";
+
+
+                errorBox.style.display =
+                    "none";
+
+
+                errorBox.textContent =
+                    "";
+
+
+                results.style.display =
+                    "none";
+
+
+                const formData =
+                    new FormData();
+
+
+                formData.append(
+                    "video",
+                    video
+                );
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "/api/upload-video",
+                            {
+                                method: "POST",
+                                body: formData
+                            }
+                        );
+
+
+                    if (!response.ok) {
+
+                        let message =
+                            "Erreur serveur "
+                            + response.status;
+
+
+                        try {
+
+                            const errorData =
+                                await response.json();
+
+
+                            if (errorData.detail) {
+                                message =
+                                    errorData.detail;
+                            }
+
+                        } catch (_) {
+
+                            // Réponse non JSON.
+
+                        }
+
+
+                        throw new Error(
+                            message
+                        );
+                    }
+
+
+                    const report =
+                        await response.json();
+
+
+                    console.log(
+                        "RAPPORT VIRALCOACH V5.4 :",
+                        report
+                    );
+
+
+                    displayReport(
+                        report
+                    );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "ERREUR INTERFACE :",
+                        error
+                    );
+
+
+                    errorBox.textContent =
+                        "L'analyse a échoué : "
+                        + error.message;
+
+
+                    errorBox.style.display =
+                        "block";
+
+
+                } finally {
+
+                    loading.style.display =
+                        "none";
+
+
+                    analyzeButton.disabled =
+                        false;
+
+
+                    analyzeButton.textContent =
+                        "Analyser la vidéo";
+                }
+            }
+        );
+
+
+        /* =====================================================
+           AFFICHAGE DU RAPPORT
+        ===================================================== */
+
+        function displayReport(report) {
+
+            const viralcoach =
+                report.viralcoach
+                || {};
+
+
+            const client =
+                report.rapport_client
+                || {};
+
+
+            const notes =
+                client.notes
+                || {};
+
+
+            const scores =
+                client.scores
+                || viralcoach.scores
+                || {};
+
+
+            const opening =
+                client.diagnostic_3_premieres_secondes
+                || {};
+
+
+            const publication =
+                client.publication
+                || report.publication
+                || {};
+
+
+            /* =================================================
+               SCORE GLOBAL /100
+            ================================================= */
+
+            const oldGlobalScore =
+                Number(
+                    client.note_globale
+                    ?? viralcoach.note_globale
+                    ?? 0
+                );
+
+
+            const scoreViral =
+                Number(
+                    client.score_viral
+                    ?? viralcoach.score_viral
+                    ?? (
+                        oldGlobalScore
+                        * 10
+                    )
+                );
+
+
+            document.getElementById(
+                "globalScore"
+            ).textContent =
+                Math.round(
+                    scoreViral
+                )
+                + "/100";
+
+const remixVideo =
+    report.video_remixee
+    || {};
+
+const remixPanel =
+    document.getElementById(
+        "remixVideoPanel"
+    );
+
+const downloadRemixButton =
+    document.getElementById(
+        "downloadRemixButton"
+    );
+
+if (
+    remixVideo.status === "ok"
+    && remixVideo.filename
+) {
+
+    downloadRemixButton.href =
+        "/api/remix/"
+        + encodeURIComponent(
+            remixVideo.filename
+        );
+
+    downloadRemixButton.setAttribute(
+        "download",
+        remixVideo.filename
+    );
+
+    remixPanel.style.display =
+        "block";
+
+} else {
+
+    remixPanel.style.display =
+        "none";
+}
+            /* =================================================
+               VERDICT
+            ================================================= */
+
+            document.getElementById(
+                "verdict"
+            ).textContent =
+                client.potentiel_viral
+                || viralcoach.potentiel_viral
+                || client.verdict
+                || viralcoach.verdict
+                || "Analyse terminée";
+
+
+            /* =================================================
+               RÉTENTION GÉNÉRALE
+            ================================================= */
+
+            const retentionRaw =
+                Number(
+                    notes.retention_estimee
+                    ?? viralcoach.retention_estimee
+                    ?? 0
+                );
+
+
+            document.getElementById(
+                "retentionLevel"
+            ).textContent =
+                viralcoach.niveau_retention
+                    ? (
+                        "Rétention : "
+                        + viralcoach.niveau_retention
+                    )
+                    : (
+                        retentionRaw > 0
+                            ? (
+                                "Rétention estimée : "
+                                + Math.round(
+                                    retentionRaw
+                                )
+                                + "%"
+                            )
+                            : ""
+                    );
+
+
+            /* =================================================
+               SCORE HOOK /20
+            ================================================= */
+
+            const hookScore =
+                Number(
+                    scores.hook
+                    ?? client.score_hook
+                    ?? viralcoach.score_hook
+                    ?? (
+                        Number(
+                            notes.hook
+                            ?? viralcoach.note_hook
+                            ?? 0
+                        )
+                        * 2
+                    )
+                );
+
+
+            document.getElementById(
+                "hookScore"
+            ).textContent =
+                Math.round(
+                    hookScore
+                )
+                + "/20";
+
+
+            /* =================================================
+               SCORE CONTENU /20
+            ================================================= */
+
+            const contentScore =
+                Number(
+                    scores.texte
+                    ?? client.score_texte
+                    ?? viralcoach.score_texte
+                    ?? 0
+                );
+
+
+            document.getElementById(
+                "contentScore"
+            ).textContent =
+                Math.round(
+                    contentScore
+                )
+                + "/20";
+
+
+            /* =================================================
+               SCORE VISUEL /20
+            ================================================= */
+
+            const visualScore =
+                Number(
+                    scores.visuel
+                    ?? client.score_visuel
+                    ?? viralcoach.score_visuel
+                    ?? (
+                        Number(
+                            notes.visuel
+                            ?? viralcoach.note_visuelle
+                            ?? 0
+                        )
+                        * 2
+                    )
+                );
+
+
+            document.getElementById(
+                "visualScore"
+            ).textContent =
+                Math.round(
+                    visualScore
+                )
+                + "/20";
+
+
+            /* =================================================
+               SCORE RYTHME /20
+            ================================================= */
+
+            const rhythmScore =
+                Number(
+                    scores.rythme
+                    ?? client.score_rythme
+                    ?? viralcoach.score_rythme
+                    ?? (
+                        Number(
+                            notes.rythme
+                            ?? viralcoach.note_rythme
+                            ?? 0
+                        )
+                        * 2
+                    )
+                );
+
+
+            document.getElementById(
+                "rhythmScore"
+            ).textContent =
+                Math.round(
+                    rhythmScore
+                )
+                + "/20";
+
+
+            /* =================================================
+               SCORE RÉTENTION /20
+            ================================================= */
+
+            const retentionScore =
+                Number(
+                    scores.retention
+                    ?? client.score_retention
+                    ?? viralcoach.score_retention
+                    ?? (
+                        retentionRaw
+                        / 5
+                    )
+                );
+
+
+            document.getElementById(
+                "retentionScore"
+            ).textContent =
+                Math.round(
+                    retentionScore
+                )
+                + "/20";
+
+
+            /* =================================================
+               OUVERTURE
+            ================================================= */
+
+            document.getElementById(
+                "openingDiagnostic"
+            ).textContent =
+                opening.diagnostic
+                || "Diagnostic non disponible.";
+
+
+            document.getElementById(
+                "openingPriority"
+            ).textContent =
+                opening.action_prioritaire
+                || (
+                    "Renforcer la promesse "
+                    + "dès le début."
+                );
+
+
+            /* =================================================
+               TIMELINE
+            ================================================= */
+
+            displayRisks(
+                client.passages_a_risque
+                || []
+            );
+
+
+            /* =================================================
+               HOOKS
+            ================================================= */
+
+            displayHooks(
+                client.hooks_ameliores
+                || []
+            );
+
+
+            /* =================================================
+               PLAN DE REMONTAGE V5.3
+
+               Le backend expose remontage_v5_3.
+               remontage_v5_1 reste disponible en secours.
+            ================================================= */
+
+            displayEditingPlan(
+                report.remontage_v5_4
+                || report.remontage_v5_3
+                || report.remontage_v5_1
+                || {},
+                client.plan_remontage
+                || []
+            );
+
+
+            /* =================================================
+               PUBLICATION
+            ================================================= */
+
+            document.getElementById(
+                "tiktokDescription"
+            ).textContent =
+                publication.description_tiktok
+                || "Aucune description générée.";
+
+
+            displayHashtags(
+                publication.hashtags
+                || []
+            );
+
+
+            /* =================================================
+               AFFICHAGE DES RÉSULTATS
+            ================================================= */
+
+            results.style.display =
+                "block";
+
+
+            results.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+        }
+                /* =====================================================
+           TIMELINE / PASSAGES À RISQUE
+        ===================================================== */
+
+        function displayRisks(risks) {
+
+            const container =
+                document.getElementById(
+                    "riskList"
+                );
+
+            const total =
+                document.getElementById(
+                    "riskTotal"
+                );
+
+            const highTotal =
+                document.getElementById(
+                    "riskHigh"
+                );
+
+
+            container.innerHTML = "";
+
+
+            const sortedRisks =
+                [...risks].sort(
+                    function (
+                        first,
+                        second
+                    ) {
+                        return (
+                            Number(
+                                first.debut
+                                || 0
+                            )
+                            -
+                            Number(
+                                second.debut
+                                || 0
+                            )
+                        );
+                    }
+                );
+
+
+            const highRisks =
+                sortedRisks.filter(
+                    function (risk) {
+
+                        const level =
+                            String(
+                                risk.niveau_risque
+                                || ""
+                            )
+                            .toLowerCase();
+
+
+                        return (
+                            level.includes("élevé")
+                            ||
+                            level.includes("eleve")
+                            ||
+                            level.includes("fort")
+                            ||
+                            level.includes("critique")
+                            ||
+                            level.includes("high")
+                        );
+                    }
+                );
+
+
+            total.textContent =
+                sortedRisks.length;
+
+
+            highTotal.textContent =
+                highRisks.length;
+
+
+            if (
+                sortedRisks.length
+                === 0
+            ) {
+
+                container.innerHTML =
+                    '<div class="empty">'
+                    +
+                    "Aucun passage à risque important détecté."
+                    +
+                    "</div>";
+
+                return;
+            }
+
+
+            sortedRisks.forEach(
+                function (
+                    risk,
+                    index
+                ) {
+
+                    const level =
+                        String(
+                            risk.niveau_risque
+                            || ""
+                        )
+                        .toLowerCase();
+
+
+                    const isHigh =
+                        level.includes("élevé")
+                        ||
+                        level.includes("eleve")
+                        ||
+                        level.includes("fort")
+                        ||
+                        level.includes("critique")
+                        ||
+                        level.includes("high");
+
+
+                    const start =
+                        Number(
+                            risk.debut
+                            || 0
+                        );
+
+
+                    const end =
+                        Number(
+                            risk.fin
+                            || start
+                        );
+
+
+                    const duration =
+                        Math.max(
+                            0,
+                            end - start
+                        );
+
+
+                    const entry =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    entry.className =
+                        "timeline-entry"
+                        +
+                        (
+                            isHigh
+                                ? " high"
+                                : " medium"
+                        );
+
+
+                    /* NUMÉRO */
+
+                    const number =
+                        document.createElement(
+                            "div"
+                        );
+
+                    number.className =
+                        "timeline-number";
+
+
+                    const numberCircle =
+                        document.createElement(
+                            "span"
+                        );
+
+                    numberCircle.textContent =
+                        index + 1;
+
+
+                    number.appendChild(
+                        numberCircle
+                    );
+
+
+                    /* CONTENU */
+
+                    const content =
+                        document.createElement(
+                            "div"
+                        );
+
+                    content.className =
+                        "timeline-content";
+
+
+                    /* HEADER */
+
+                    const header =
+                        document.createElement(
+                            "div"
+                        );
+
+                    header.className =
+                        "timeline-entry-header";
+
+
+                    const timeArea =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    const time =
+                        document.createElement(
+                            "span"
+                        );
+
+                    time.className =
+                        "timeline-time";
+
+                    time.textContent =
+                        risk.timecode
+                        || "Passage";
+
+
+                    timeArea.appendChild(
+                        time
+                    );
+
+
+                    if (duration > 0) {
+
+                        const durationElement =
+                            document.createElement(
+                                "span"
+                            );
+
+                        durationElement.className =
+                            "timeline-duration";
+
+                        durationElement.textContent =
+                            duration.toFixed(1)
+                            + " s";
+
+
+                        timeArea.appendChild(
+                            durationElement
+                        );
+                    }
+
+
+                    /* BADGE RISQUE */
+
+                    const riskBadge =
+                        document.createElement(
+                            "span"
+                        );
+
+                    riskBadge.className =
+                        "timeline-risk"
+                        +
+                        (
+                            isHigh
+                                ? " high"
+                                : ""
+                        );
+
+
+                    riskBadge.textContent =
+                        risk.niveau_risque
+                        || "À surveiller";
+
+
+                    header.append(
+                        timeArea,
+                        riskBadge
+                    );
+
+
+                    /* DIAGNOSTIC */
+
+                    const diagnostic =
+                        document.createElement(
+                            "p"
+                        );
+
+                    diagnostic.className =
+                        "timeline-diagnostic";
+
+
+                    diagnostic.textContent =
+                        risk.diagnostic
+                        || "Passage à surveiller.";
+
+
+                    /* ACTION */
+
+                    const action =
+                        document.createElement(
+                            "div"
+                        );
+
+                    action.className =
+                        "timeline-action";
+
+
+                    const actionLabel =
+                        document.createElement(
+                            "strong"
+                        );
+
+                    actionLabel.textContent =
+                        "Action";
+
+
+                    const recommendation =
+                        document.createElement(
+                            "span"
+                        );
+
+                    recommendation.textContent =
+                        risk.recommandation
+                        ||
+                        "Ajouter une relance visuelle.";
+
+
+                    action.append(
+                        actionLabel,
+                        recommendation
+                    );
+
+
+                    content.append(
+                        header,
+                        diagnostic,
+                        action
+                    );
+
+
+                    entry.append(
+                        number,
+                        content
+                    );
+
+
+                    container.appendChild(
+                        entry
+                    );
+                }
+            );
+        }
+
+
+        /* =====================================================
+           HOOKS
+        ===================================================== */
+
+        function displayHooks(hooks) {
+
+            const container =
+                document.getElementById(
+                    "hookList"
+                );
+
+
+            container.innerHTML = "";
+
+
+            if (
+                !Array.isArray(hooks)
+                ||
+                hooks.length === 0
+            ) {
+
+                container.innerHTML =
+                    '<div class="empty">'
+                    +
+                    "Aucun hook proposé."
+                    +
+                    "</div>";
+
+                return;
+            }
+
+
+            hooks
+                .slice(0, 3)
+                .forEach(
+                    function (
+                        hook,
+                        index
+                    ) {
+
+                        const item =
+                            document.createElement(
+                                "div"
+                            );
+
+                        item.className =
+                            "item";
+
+
+                        item.textContent =
+                            (index + 1)
+                            +
+                            ". "
+                            +
+                            hook;
+
+
+                        container.appendChild(
+                            item
+                        );
+                    }
+                );
+        }
+
+
+        /* =====================================================
+           PLAN DE REMONTAGE V5.3
+        ===================================================== */
+
+        function displayEditingPlan(
+            remontage,
+            fallbackSteps = []
+        ) {
+
+            const container =
+                document.getElementById(
+                    "editingPlan"
+                );
+
+            const summary =
+                document.getElementById(
+                    "remontageSummary"
+                );
+
+            const overview =
+                document.getElementById(
+                    "remontageOverview"
+                );
+
+            const hookCandidate =
+                document.getElementById(
+                    "hookCandidate"
+                );
+
+            container.innerHTML = "";
+            overview.innerHTML = "";
+            hookCandidate.innerHTML = "";
+            hookCandidate.style.display = "none";
+
+
+            let segments =
+                Array.isArray(
+                    remontage.segments
+                )
+                    ? remontage.segments
+                    : [];
+
+
+            /* =================================================
+               FALLBACK
+            ================================================= */
+
+            if (
+                segments.length === 0
+                &&
+                Array.isArray(fallbackSteps)
+                &&
+                fallbackSteps.length > 0
+            ) {
+
+                segments =
+                    fallbackSteps.map(
+                        function (
+                            step,
+                            index
+                        ) {
+
+                            const action =
+                                typeof step === "string"
+                                    ? step
+                                    : (
+                                        step.action
+                                        ||
+                                        step.recommandation
+                                        ||
+                                        step.description
+                                        ||
+                                        "Optimiser ce passage."
+                                    );
+
+
+                            return {
+                                ordre: index + 1,
+                                timecode: "Étape " + (index + 1),
+                                phase: "MONTAGE",
+                                objectif: "Améliorer le montage",
+                                diagnostic: "Passage à optimiser.",
+                                recommandation: action,
+                                texte_ecran: "",
+                                niveau_risque: "MOYEN",
+                                decision: "RENFORCER",
+                                score_retention: null,
+                                gain_retention_estime: null,
+                                actions: []
+                            };
+                        }
+                    );
+            }
+
+
+            /* =================================================
+               SYNTHÈSE V5.3
+            ================================================= */
+
+            const version =
+                remontage.version
+                || "5.4";
+
+            const duration =
+                Number(
+                    remontage.duration_seconds
+                    || 0
+                );
+
+            const numberOfSegments =
+                remontage.nombre_segments
+                || segments.length;
+
+            const strategy =
+                remontage.strategie
+                || {};
+
+            const finalDuration =
+                remontage.duree_apres_remontage
+                || {};
+
+            let summaryText =
+                "ViralCoach V"
+                + version
+                + " — "
+                + numberOfSegments
+                + " segments";
+
+            if (duration > 0) {
+                summaryText +=
+                    " — durée "
+                    + duration.toFixed(2)
+                    + " s";
+            }
+
+            if (remontage.resume) {
+                summaryText +=
+                    " — "
+                    + remontage.resume;
+            }
+
+            summary.textContent =
+                summaryText;
+
+
+            const overviewItems = [
+                {
+                    label: "Durée originale",
+                    value:
+                        Number(
+                            finalDuration.duree_originale
+                            ?? duration
+                            ?? 0
+                        ) > 0
+                            ? Number(
+                                finalDuration.duree_originale
+                                ?? duration
+                            ).toFixed(2) + " s"
+                            : "—"
+                },
+                {
+                    label: "Durée supprimée",
+                    value:
+                        Number(
+                            finalDuration.duree_supprimee
+                            ?? strategy.duree_totale_a_supprimer
+                            ?? 0
+                        ).toFixed(2)
+                        + " s"
+                },
+                {
+                    label: "Durée finale estimée",
+                    value:
+                        Number(
+                            finalDuration.duree_finale_estimee
+                            ?? 0
+                        ) > 0
+                            ? Number(
+                                finalDuration.duree_finale_estimee
+                            ).toFixed(2) + " s"
+                            : "—"
+                },
+                {
+                    label: "Rétention moyenne",
+                    value:
+                        Number(
+                            strategy.score_retention_moyen
+                            ?? 0
+                        ) > 0
+                            ? Math.round(
+                                Number(
+                                    strategy.score_retention_moyen
+                                )
+                            ) + "/100"
+                            : "—"
+                },
+                {
+                    label: "Gain moyen estimé",
+                    value:
+                        Number(
+                            strategy.gain_retention_moyen_estime
+                            ?? 0
+                        ) > 0
+                            ? "+"
+                            + Number(
+                                strategy.gain_retention_moyen_estime
+                            ).toFixed(1)
+                            + " pts"
+                            : "—"
+                },
+                {
+                    label: "Segments prioritaires",
+                    value:
+                        Number(
+                            strategy.segments_prioritaires
+                            ?? 0
+                        )
+                }
+            ];
+
+
+            overviewItems.forEach(
+                function (item) {
+
+                    const stat =
+                        document.createElement(
+                            "div"
+                        );
+
+                    stat.className =
+                        "remontage-stat";
+
+                    const label =
+                        document.createElement(
+                            "span"
+                        );
+
+                    label.textContent =
+                        item.label;
+
+                    const value =
+                        document.createElement(
+                            "strong"
+                        );
+
+                    value.textContent =
+                        item.value;
+
+                    stat.append(
+                        label,
+                        value
+                    );
+
+                    overview.appendChild(
+                        stat
+                    );
+                }
+            );
+
+
+            /* =================================================
+               HOOK CANDIDAT
+            ================================================= */
+
+            const candidate =
+                remontage.meilleur_hook_candidat
+                || {};
+
+            if (
+                candidate
+                &&
+                typeof candidate === "object"
+                &&
+                (
+                    candidate.timecode
+                    ||
+                    candidate.contenu_segment
+                    ||
+                    candidate.suggestion
+                )
+            ) {
+
+                const title =
+                    document.createElement(
+                        "strong"
+                    );
+
+                title.textContent =
+                    "Hook candidat sémantique V5.4";
+
+                const content =
+                    document.createElement(
+                        "div"
+                    );
+
+                content.style.marginTop =
+                    "7px";
+
+                const pieces = [];
+
+                if (candidate.timecode) {
+                    pieces.push(
+                        candidate.timecode
+                    );
+                }
+
+                if (
+                    candidate.score_retention
+                    !== undefined
+                    &&
+                    candidate.score_retention
+                    !== null
+                ) {
+                    pieces.push(
+                        "score "
+                        + Math.round(
+                            Number(
+                                candidate.score_retention
+                            )
+                        )
+                        + "/100"
+                    );
+                }
+
+                if (candidate.contenu_segment) {
+                    pieces.push(
+                        candidate.contenu_segment
+                    );
+                }
+
+                content.textContent =
+                    pieces.join(
+                        " — "
+                    );
+
+                hookCandidate.append(
+                    title,
+                    content
+                );
+
+                if (candidate.suggestion) {
+
+                    const suggestion =
+                        document.createElement(
+                            "div"
+                        );
+
+                    suggestion.style.marginTop =
+                        "7px";
+
+                    suggestion.style.color =
+                        "var(--muted)";
+
+                    suggestion.textContent =
+                        candidate.suggestion;
+
+                    hookCandidate.appendChild(
+                        suggestion
+                    );
+                }
+
+                hookCandidate.style.display =
+                    "block";
+            }
+
+
+            /* =================================================
+               AUCUN SEGMENT
+            ================================================= */
+
+            if (
+                segments.length === 0
+            ) {
+
+                container.innerHTML =
+                    '<div class="empty">'
+                    +
+                    "Aucune modification prioritaire."
+                    +
+                    "</div>";
+
+                return;
+            }
+
+
+            /* =================================================
+               AFFICHAGE DES SEGMENTS
+            ================================================= */
+
+            segments.forEach(
+                function (
+                    segment,
+                    index
+                ) {
+
+                    const level =
+                        String(
+                            segment.niveau_risque
+                            ||
+                            segment.priorite
+                            ||
+                            "faible"
+                        )
+                            .toLowerCase();
+
+
+                    const isHigh =
+                        level.includes("élevé")
+                        ||
+                        level.includes("eleve")
+                        ||
+                        level.includes("fort")
+                        ||
+                        level.includes("critique")
+                        ||
+                        level.includes("high");
+
+
+                    const isLow =
+                        level.includes("faible")
+                        ||
+                        level.includes("low");
+
+
+                    const card =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    card.className =
+                        "remontage-card"
+                        + (
+                            isHigh
+                                ? " high"
+                                : ""
+                        )
+                        + (
+                            isLow
+                                ? " low"
+                                : ""
+                        );
+
+
+                    /* HEADER */
+
+                    const header =
+                        document.createElement(
+                            "div"
+                        );
+
+                    header.className =
+                        "remontage-header";
+
+
+                    const time =
+                        document.createElement(
+                            "div"
+                        );
+
+                    time.className =
+                        "remontage-time";
+
+
+                    time.textContent =
+                        segment.timecode
+                        ||
+                        segment.timecode_court
+                        ||
+                        (
+                            "Segment "
+                            + (index + 1)
+                        );
+
+
+                    const priority =
+                        document.createElement(
+                            "span"
+                        );
+
+
+                    priority.className =
+                        "remontage-priority"
+                        + (
+                            isHigh
+                                ? " high"
+                                : ""
+                        )
+                        + (
+                            isLow
+                                ? " low"
+                                : ""
+                        );
+
+
+                    priority.textContent =
+                        segment.niveau_risque
+                        ||
+                        segment.priorite
+                        ||
+                        "FAIBLE";
+
+
+                    header.append(
+                        time,
+                        priority
+                    );
+
+
+                    /* DÉCISION IA */
+
+                    const decision =
+                        String(
+                            segment.decision
+                            || "CONSERVER"
+                        )
+                            .toUpperCase();
+
+                    const decisionBadge =
+                        document.createElement(
+                            "span"
+                        );
+
+                    const decisionClass =
+                        decision
+                            .normalize("NFD")
+                            .replace(
+                                /[\u0300-\u036f]/g,
+                                ""
+                            )
+                            .toLowerCase();
+
+                    decisionBadge.className =
+                        "decision-badge decision-"
+                        + decisionClass;
+
+                    decisionBadge.textContent =
+                        decision;
+
+
+                    const semanticBadge =
+                        document.createElement(
+                            "span"
+                        );
+
+                    semanticBadge.className =
+                        "semantic-badge";
+
+                    semanticBadge.textContent =
+                        segment.source_semantique
+                            ? "SÉMANTIQUE V5.4"
+                            : "TECHNIQUE V5.3";
+
+
+                    /* ACTIONS TECHNIQUES */
+
+                    const actions =
+                        document.createElement(
+                            "div"
+                        );
+
+                    actions.className =
+                        "remontage-actions";
+
+
+                    const actionList =
+                        Array.isArray(
+                            segment.actions
+                        )
+                            ? [...segment.actions]
+                            : [];
+
+
+                    if (
+                        actionList.length === 0
+                    ) {
+
+                        actionList.push(
+                            decision
+                        );
+                    }
+
+
+                    actionList.forEach(
+                        function (
+                            actionName
+                        ) {
+
+                            const chip =
+                                document.createElement(
+                                    "span"
+                                );
+
+                            chip.className =
+                                "remontage-action-chip";
+
+
+                            chip.textContent =
+                                String(
+                                    actionName
+                                );
+
+
+                            actions.appendChild(
+                                chip
+                            );
+                        }
+                    );
+
+
+                    actions.prepend(
+                        semanticBadge
+                    );
+
+                    actions.prepend(
+                        decisionBadge
+                    );
+
+
+                    card.append(
+                        header,
+                        actions
+                    );
+
+
+                    /* PHASE */
+
+                    appendRemontageRow(
+                        card,
+                        "Phase",
+                        String(
+                            segment.phase
+                            ||
+                            segment.type
+                            ||
+                            "MONTAGE"
+                        )
+                            .toUpperCase()
+                    );
+
+
+                    /* =================================================
+                       ANALYSE SÉMANTIQUE V5.4
+                    ================================================= */
+
+                    if (
+                        segment.contenu_segment
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Contenu détecté",
+                            segment.contenu_segment,
+                            false,
+                            "semantic-row"
+                        );
+                    }
+
+
+                    if (
+                        segment.message_cle
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Message clé",
+                            segment.message_cle,
+                            false,
+                            "semantic-message"
+                        );
+                    }
+
+
+                    if (
+                        segment.score_semantique !== undefined
+                        &&
+                        segment.score_semantique !== null
+                        &&
+                        Number(segment.score_semantique) > 0
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Score sémantique",
+                            Math.round(
+                                Number(
+                                    segment.score_semantique
+                                )
+                            )
+                            + "/100",
+                            false,
+                            "semantic-score"
+                        );
+                    }
+
+
+                    if (
+                        segment.valeur_information
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Valeur info",
+                            String(
+                                segment.valeur_information
+                            ).toUpperCase(),
+                            false,
+                            "semantic-row"
+                        );
+                    }
+
+
+                    if (
+                        segment.probleme_semantique
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Problème détecté",
+                            segment.probleme_semantique,
+                            false,
+                            "semantic-problem"
+                        );
+                    }
+
+
+                    if (
+                        segment.hook_potentiel
+                    ) {
+
+                        const hookText =
+                            segment.phrase_hook
+                            || segment.raison_hook
+                            || "Ce passage peut être testé comme hook.";
+
+                        appendRemontageRow(
+                            card,
+                            "Hook potentiel",
+                            hookText,
+                            false,
+                            "semantic-message"
+                        );
+                    }
+
+
+                    /* SCORE RÉTENTION */
+
+                    if (
+                        segment.score_retention
+                        !== undefined
+                        &&
+                        segment.score_retention
+                        !== null
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Score rétention",
+                            Math.round(
+                                Number(
+                                    segment.score_retention
+                                )
+                            )
+                            + "/100"
+                        );
+                    }
+
+
+                    /* GAIN RÉTENTION */
+
+                    if (
+                        segment.gain_retention_estime
+                        !== undefined
+                        &&
+                        segment.gain_retention_estime
+                        !== null
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Gain estimé",
+                            "+"
+                            + Number(
+                                segment.gain_retention_estime
+                            ).toFixed(1)
+                            + " pts"
+                        );
+                    }
+
+
+                    /* CONTENU */
+
+                    if (
+                        segment.contenu_segment
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Contenu",
+                            segment.contenu_segment
+                        );
+                    }
+
+
+                    /* OBJECTIF */
+
+                    appendRemontageRow(
+                        card,
+                        "Objectif",
+                        segment.objectif_retention
+                        ||
+                        segment.objectif
+                        ||
+                        "Maintenir l'attention."
+                    );
+
+
+                    /* DIAGNOSTIC */
+
+                    appendRemontageRow(
+                        card,
+                        "Diagnostic",
+                        segment.diagnostic
+                        ||
+                        "Passage correct."
+                    );
+
+
+                    /* MODIFICATION */
+
+                    appendRemontageRow(
+                        card,
+                        "Modification",
+                        segment.recommandation
+                        ||
+                        segment.action
+                        ||
+                        "Conserver ce passage."
+                    );
+
+
+                    /* COUPE PRÉCISE */
+
+                    if (
+                        Number(
+                            segment.duree_a_supprimer
+                            || 0
+                        ) > 0
+                    ) {
+
+                        let cutText =
+                            Number(
+                                segment.duree_a_supprimer
+                            ).toFixed(2)
+                            + " s à supprimer";
+
+
+                        if (
+                            segment.coupe_debut
+                            !== null
+                            &&
+                            segment.coupe_debut
+                            !== undefined
+                            &&
+                            segment.coupe_fin
+                            !== null
+                            &&
+                            segment.coupe_fin
+                            !== undefined
+                        ) {
+
+                            cutText +=
+                                " — de "
+                                + Number(
+                                    segment.coupe_debut
+                                ).toFixed(2)
+                                + " s à "
+                                + Number(
+                                    segment.coupe_fin
+                                ).toFixed(2)
+                                + " s";
+                        }
+
+
+                        appendRemontageRow(
+                            card,
+                            "Coupe proposée",
+                            cutText
+                        );
+                    }
+
+
+                    /* B-ROLL */
+
+                    if (
+                        segment.b_roll
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "B-roll",
+                            segment.b_roll
+                        );
+                    }
+
+
+                    /* TEXTE ÉCRAN */
+
+                    if (
+                        segment.texte_ecran
+                    ) {
+
+                        appendRemontageRow(
+                            card,
+                            "Texte écran",
+                            segment.texte_ecran,
+                            true
+                        );
+                    }
+
+
+                    container.appendChild(
+                        card
+                    );
+                }
+            );
+
+
+            console.log(
+                "Segments V5.4 affichés :",
+                segments.length
+            );
+        }
+
+
+        /* =====================================================
+           LIGNE DU PLAN DE REMONTAGE
+        ===================================================== */
+
+        function appendRemontageRow(
+            card,
+            labelText,
+            valueText,
+            isTextScreen = false,
+            extraClass = ""
+        ) {
+
+            const row =
+                document.createElement(
+                    "div"
+                );
+
+
+            row.className =
+                "remontage-row"
+                +
+                (
+                    isTextScreen
+                        ? " text-screen"
+                        : ""
+                )
+                +
+                (
+                    extraClass
+                        ? " " + extraClass
+                        : ""
+                );
+
+
+            const label =
+                document.createElement(
+                    "strong"
+                );
+
+
+            label.textContent =
+                labelText;
+
+
+            const value =
+                document.createElement(
+                    "span"
+                );
+
+
+            value.textContent =
+                valueText;
+
+
+            row.append(
+                label,
+                value
+            );
+
+
+            card.appendChild(
+                row
+            );
+        }
+
+
+        /* =====================================================
+           HASHTAGS
+        ===================================================== */
+
+        function displayHashtags(
+            hashtags
+        ) {
+
+            const container =
+                document.getElementById(
+                    "hashtags"
+                );
+
+
+            container.innerHTML = "";
+
+
+            if (
+                !Array.isArray(
+                    hashtags
+                )
+            ) {
+                return;
+            }
+
+
+            hashtags.forEach(
+                function (
+                    hashtag
+                ) {
+
+                    const item =
+                        document.createElement(
+                            "span"
+                        );
+
+
+                    item.className =
+                        "hashtag";
+
+
+                    const text =
+                        String(
+                            hashtag
+                        );
+
+
+                    item.textContent =
+                        text.startsWith("#")
+                            ? text
+                            : "#" + text;
+
+
+                    container.appendChild(
+                        item
+                    );
+                }
+            );
+        }
+
+    </script>
+
+</body>
+
+</html>

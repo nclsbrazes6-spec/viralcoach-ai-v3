@@ -3,24 +3,57 @@ import shutil
 import uuid
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
-from app.services.video_processor import extract_audio, extract_frames
+from app.services.video_processor import (
+    extract_audio,
+    extract_frames,
+)
 from app.services.transcriber import transcribe
 from app.services.analyzer import analyze_transcription
 from app.services.visual_analyzer import analyze_frames
+from app.services.montage_analyzer import (
+    analyze_montage,
+    get_video_duration,
+)
+from app.services.retention_analyzer import analyze_retention
+from app.services.scene_analyzer import analyze_scenes
+from app.services.timeline_analyzer import build_timeline
+from app.services.remontage_analyzer import analyze_remontage
+from app.services.semantic_segment_analyzer import analyze_semantic_segments
+from app.services.semantic_remontage_merger import merge_semantic_remontage
+from app.services.global_remix_planner import build_global_remix_plan
+from app.services.video_remixer import generate_global_remix_video
 from app.services.report_builder import build_final_report
-from app.services.gemini_vision import analyze_video_semantics
 
+
+# ============================================================
+# APPLICATION
+# ============================================================
 
 app = FastAPI(
-    title="ViralCoach AI V3",
-    version="3.3.0",
+    title="ViralCoach AI V5.5",
+    version="5.5.0",
+    description=(
+        "Analyse et remontage automatique "
+        "de vidéos courtes pour TikTok/Reels."
+    ),
 )
 
 
-UPLOAD_DIR = Path("uploads")
-FRAMES_DIR = Path("frames")
-AUDIO_DIR = Path("audio")
+# ============================================================
+# CHEMINS
+# ============================================================
+
+APP_DIR = Path(__file__).resolve().parent
+BASE_DIR = APP_DIR.parent
+
+INTERFACE_FILE = APP_DIR / "static" / "index.html"
+
+UPLOAD_DIR = BASE_DIR / "uploads"
+FRAMES_DIR = BASE_DIR / "frames"
+AUDIO_DIR = BASE_DIR / "audio"
+OUTPUT_DIR = BASE_DIR / "outputs"
 
 UPLOAD_DIR.mkdir(
     parents=True,
@@ -37,222 +70,474 @@ AUDIO_DIR.mkdir(
     exist_ok=True,
 )
 
+OUTPUT_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
 
-@app.get("/")
-def home():
-    return {
-        "status": "ok",
-        "message": "ViralCoach AI V3 fonctionne",
-    }
 
+# ============================================================
+# INTERFACE
+# ============================================================
+
+@app.get(
+    "/",
+    include_in_schema=False,
+)
+def show_interface():
+
+    if not INTERFACE_FILE.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Interface ViralCoach introuvable.",
+        )
+
+    return FileResponse(
+        INTERFACE_FILE
+    )
+
+
+# ============================================================
+# ROUTE DE TEST
+# ============================================================
 
 @app.get("/health")
 def health():
+
     return {
         "status": "healthy",
+        "version": "5.5.0",
+        "app": "ViralCoach AI V5.5",
+        "remix_engine": "global-v3",
     }
 
+@app.get("/api/remix/{filename}")
+def download_remix(filename: str):
+
+    # Sécurité : on ne garde que le nom du fichier
+    safe_filename = Path(filename).name
+
+    remix_file = OUTPUT_DIR / safe_filename
+
+    if not remix_file.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Vidéo remontée introuvable.",
+        )
+
+    return FileResponse(
+        remix_file,
+        media_type="video/mp4",
+        filename=safe_filename,
+    )
+# ============================================================
+# UPLOAD + ANALYSE + REMONTAGE
+# ============================================================
 
 @app.post("/api/upload-video")
 async def upload_video(
     video: UploadFile = File(...),
 ):
-    filename = video.filename or "video.mp4"
-    extension = Path(filename).suffix.lower()
-
-    formats_acceptes = {
-        ".mp4",
-        ".mov",
-        ".m4v",
-        ".webm",
-    }
-
-    if extension not in formats_acceptes:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Format non accepté. "
-                "Utilise MP4, MOV, M4V ou WEBM."
-            ),
-        )
-
-    video_id = uuid.uuid4().hex[:8]
-
-    video_path = (
-        UPLOAD_DIR
-        / f"{video_id}{extension}"
-    )
-
-    frames_folder = (
-        FRAMES_DIR
-        / video_id
-    )
-
-    audio_path = (
-        AUDIO_DIR
-        / f"{video_id}.wav"
-    )
 
     try:
-        # Enregistrement de la vidéo
-        with video_path.open("wb") as destination:
+
+        # ----------------------------------------------------
+        # 1. IDENTIFIANT VIDÉO
+        # ----------------------------------------------------
+
+        video_id = uuid.uuid4().hex[:8]
+
+        original_filename = (
+            video.filename
+            or "video.mp4"
+        )
+
+        extension = Path(
+            original_filename
+        ).suffix.lower()
+
+        if not extension:
+            extension = ".mp4"
+
+        filename = (
+            f"{video_id}{extension}"
+        )
+
+        video_path = (
+            UPLOAD_DIR
+            / filename
+        )
+
+        audio_path = (
+            AUDIO_DIR
+            / f"{video_id}.wav"
+        )
+
+        frame_directory = (
+            FRAMES_DIR
+            / video_id
+        )
+
+        frame_directory.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        # ----------------------------------------------------
+        # 2. SAUVEGARDE VIDÉO
+        # ----------------------------------------------------
+
+        with video_path.open(
+            "wb"
+        ) as buffer:
+
             shutil.copyfileobj(
                 video.file,
-                destination,
+                buffer,
             )
 
-        # Extraction des images
+        # ----------------------------------------------------
+        # 3. EXTRACTION DES FRAMES
+        # ----------------------------------------------------
+
         frames = extract_frames(
             video_path,
-            frames_folder,
+            frame_directory,
         )
 
-        # Analyse visuelle locale
-        analyse_visuelle = analyze_frames(
-            frames
+        # ----------------------------------------------------
+        # 4. ANALYSE VISUELLE
+        # ----------------------------------------------------
+
+        analyse_visuelle = (
+            analyze_frames(
+                frames
+            )
         )
 
-        # Extraction de l'audio
-        extracted_audio = extract_audio(
-            video_path,
-            audio_path,
+        # ----------------------------------------------------
+        # 5. EXTRACTION AUDIO
+        # ----------------------------------------------------
+
+        extracted_audio = (
+            extract_audio(
+                video_path,
+                audio_path,
+            )
         )
 
-        # Transcription locale
+        # ----------------------------------------------------
+        # 6. TRANSCRIPTION
+        # ----------------------------------------------------
+
         transcription = transcribe(
             str(extracted_audio)
         )
 
-        # Analyse de la transcription
+        # ----------------------------------------------------
+        # 7. ANALYSE DE LA TRANSCRIPTION
+        # ----------------------------------------------------
+
         analyse_transcription = (
             analyze_transcription(
                 transcription
             )
-
-        )
-        analyse_semantique = analyze_video_semantics(
-        frame_paths=frames,
-            transcription=transcription,
-        )
-        # Fusion des analyses
-        rapport_final = build_final_report(
-            transcription=transcription,
-            text_analysis=analyse_transcription,
-            visual_analysis=analyse_visuelle,
         )
 
-        if analyse_semantique.get("disponible"):
-            rapport_final.update(
-                {
-                    "score_viral_global": (
-                        analyse_semantique.get(
-                            "score_potentiel_viral",
-                            0,
-                        )
-                    ),
-                    "verdict": (
-                        analyse_semantique.get(
-                            "resume_video",
-                            "",
-                        )
-                    ),
-                    "sujet_principal": (
-                        analyse_semantique.get(
-                            "sujet_principal",
-                            "",
-                        )
-                    ),
-                    "hook_visuel": (
-                        analyse_semantique.get(
-                            "hook_visuel",
-                            "",
-                        )
-                    ),
-                    "points_forts": (
-                        analyse_semantique.get(
-                            "points_forts",
-                            [],
-                        )
-                    ),
-                    "points_faibles": (
-                        analyse_semantique.get(
-                            "points_faibles",
-                            [],
-                        )
-                    ),
-                    "priorites": (
-                        analyse_semantique.get(
-                            "priorites",
-                            [],
-                        )
-                    ),
-                    "recommandations": (
-                        analyse_semantique.get(
-                            "recommandations",
-                            [],
-                        )
-                    ),
-                    "hooks_ameliores": (
-                        analyse_semantique.get(
-                            "hooks_ameliores",
-                            [],
-                        )
-                    ),
-                    "description_tiktok": (
-                        analyse_semantique.get(
-                            "description_tiktok",
-                            "",
-                        )
-                    ),
-                    "hashtags": (
-                        analyse_semantique.get(
-                            "hashtags",
-                            [],
-                        )
-                    ),
-                }
+        # ----------------------------------------------------
+        # 8. DURÉE RÉELLE
+        # ----------------------------------------------------
+
+        duration_seconds = (
+            get_video_duration(
+                str(video_path)
             )
+        )
 
-        return {
-            "success": True,
-            "video_id": video_id,
-            "filename": filename,
-            "video_path": str(video_path),
-            "audio_path": str(
-                extracted_audio
-            ),
-            "frames_count": len(frames),
-            "frames": [
-                str(frame)
-                for frame in frames
-            ],
-            "transcription": transcription,
-            "analyse_transcription": (
+        # ----------------------------------------------------
+        # 9. ANALYSE DU MONTAGE
+        # ----------------------------------------------------
+
+        analyse_montage = (
+            analyze_montage(
+                frames_count=len(frames),
+                duration_seconds=duration_seconds,
+                transcription=transcription,
+            )
+        )
+
+        # ----------------------------------------------------
+        # 10. ANALYSE DE LA RÉTENTION
+        # ----------------------------------------------------
+
+        analyse_retention = (
+            analyze_retention(
+                analyse_transcription=(
+                    analyse_transcription
+                ),
+                analyse_visuelle=(
+                    analyse_visuelle
+                ),
+                analyse_montage=(
+                    analyse_montage
+                ),
+            )
+        )
+
+        # ----------------------------------------------------
+        # 11. DÉTECTION DES SCÈNES
+        # ----------------------------------------------------
+
+        analyse_decoupage = (
+            analyze_scenes(
+                str(video_path)
+            )
+        )
+
+        # ----------------------------------------------------
+        # 12. TIMELINE
+        # ----------------------------------------------------
+
+        analyse_timeline = (
+            build_timeline(
+                analyse_decoupage
+            )
+        )
+
+        analyse_decoupage[
+            "timeline"
+        ] = analyse_timeline
+
+        analyse_decoupage[
+            "duration_seconds"
+        ] = duration_seconds
+
+        # ----------------------------------------------------
+        # 13. REMONTAGE TECHNIQUE V5.3
+        # ----------------------------------------------------
+
+        analyse_remontage = (
+            analyze_remontage(
+                analyse_decoupage=(
+                    analyse_decoupage
+                ),
+                analyse_transcription=(
+                    analyse_transcription
+                ),
+                analyse_montage=(
+                    analyse_montage
+                ),
+            )
+        )
+
+        analyse_decoupage[
+            "remontage_v5_1"
+        ] = analyse_remontage
+
+        analyse_decoupage[
+            "remontage_v5_3"
+        ] = analyse_remontage
+
+        # ----------------------------------------------------
+        # 14. ANALYSE SÉMANTIQUE GEMINI V5.4
+        # ----------------------------------------------------
+
+        analyse_semantique = (
+            analyze_semantic_segments(
+                transcription=transcription,
+                segments=(
+                    analyse_remontage.get(
+                        "segments",
+                        [],
+                    )
+                ),
+                visual_analysis=(
+                    analyse_visuelle
+                ),
+            )
+        )
+
+        analyse_decoupage[
+            "semantic_v5_4"
+        ] = analyse_semantique
+
+        # ----------------------------------------------------
+        # 15. FUSION TECHNIQUE + SÉMANTIQUE V5.4
+        # ----------------------------------------------------
+
+        analyse_remontage_v5_4 = (
+            merge_semantic_remontage(
+                analyse_remontage=(
+                    analyse_remontage
+                ),
+                analyse_semantique=(
+                    analyse_semantique
+                ),
+            )
+        )
+
+        analyse_decoupage[
+            "remontage_v5_4"
+        ] = analyse_remontage_v5_4
+
+        # ----------------------------------------------------
+        # 16. GLOBAL REMIX PLANNER V3
+        # ----------------------------------------------------
+
+        plan_remix_v3 = (
+            build_global_remix_plan(
+                semantic_analysis=(
+                    analyse_semantique
+                ),
+                technical_remontage=(
+                    analyse_remontage
+                ),
+                duration_seconds=(
+                    duration_seconds
+                ),
+            )
+        )
+
+        analyse_decoupage[
+            "plan_remix_v3"
+        ] = plan_remix_v3
+
+        # ----------------------------------------------------
+        # 17. GÉNÉRATION DU MP4 GLOBAL V3
+        # ----------------------------------------------------
+
+        remix_path = (
+            OUTPUT_DIR
+            / f"{video_id}_global_v3.mp4"
+        )
+
+        analyse_video_remixee = (
+            generate_global_remix_video(
+                video_path=video_path,
+                plan_remix_v3=plan_remix_v3,
+                output_path=remix_path,
+            )
+        )
+
+        # ----------------------------------------------------
+        # 18. CONSTRUCTION DU RAPPORT FINAL
+        # ----------------------------------------------------
+
+        rapport = build_final_report(
+            transcription=transcription,
+            analyse_transcription=(
                 analyse_transcription
             ),
-            "analyse_visuelle": (
+            analyse_visuelle=(
                 analyse_visuelle
             ),
-            "rapport_final": rapport_final,
-        }
-
-    except FileNotFoundError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Fichier introuvable : "
-                f"{error}"
+            analyse_montage=(
+                analyse_montage
             ),
-        ) from error
+            analyse_retention=(
+                analyse_retention
+            ),
+            analyse_decoupage=(
+                analyse_decoupage
+            ),
+        )
+
+        # ----------------------------------------------------
+        # 19. AJOUT DES ANALYSES AU RAPPORT
+        # ----------------------------------------------------
+
+        rapport[
+            "remontage_v5_1"
+        ] = analyse_remontage
+
+        rapport[
+            "remontage_v5_3"
+        ] = analyse_remontage
+
+        rapport[
+            "remontage_v5_4"
+        ] = analyse_remontage_v5_4
+
+        rapport[
+            "semantic_v5_4"
+        ] = analyse_semantique
+
+        rapport[
+            "plan_remix_v3"
+        ] = plan_remix_v3
+
+        rapport[
+            "video_remixee"
+        ] = analyse_video_remixee
+
+        # ----------------------------------------------------
+        # 20. INFORMATIONS TECHNIQUES
+        # ----------------------------------------------------
+
+        rapport[
+            "video_id"
+        ] = video_id
+
+        rapport[
+            "filename"
+        ] = filename
+
+        rapport[
+            "original_filename"
+        ] = original_filename
+
+        rapport[
+            "video_path"
+        ] = str(
+            video_path
+        )
+
+        rapport[
+            "audio_path"
+        ] = str(
+            extracted_audio
+        )
+
+        rapport[
+            "frames_count"
+        ] = len(
+            frames
+        )
+
+        rapport[
+            "duration_seconds"
+        ] = round(
+            duration_seconds,
+            2,
+        )
+
+        rapport[
+            "remix_video_path"
+        ] = str(
+            remix_path
+        )
+
+        # ----------------------------------------------------
+        # 21. RÉSULTAT
+        # ----------------------------------------------------
+
+        return rapport
 
     except Exception as error:
+
+        print(
+            "ERREUR VIRALCOACH:",
+            repr(error),
+        )
+
         raise HTTPException(
             status_code=500,
             detail=(
-                "Erreur pendant le traitement : "
-                f"{error}"
+                "Erreur pendant le traitement "
+                f"de la vidéo : {error}"
             ),
         ) from error
 
     finally:
+
         await video.close()

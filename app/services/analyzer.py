@@ -1,127 +1,267 @@
+"""Analyse sémantique des paroles ViralCoach AI V5 avec Gemini."""
+
+import json
+import os
 import re
-import unicodedata
-from collections import Counter
+
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
 
 
-STOPWORDS = {
-    "alors", "avec", "avoir", "bonjour", "cette", "comme", "dans", "des",
-    "elle", "elles", "encore", "est", "faire", "fait", "fois", "ici", "ils",
-    "mais", "nous", "notre", "pour", "plus", "que", "qui", "sans", "ses",
-    "sur", "tes", "toi", "ton", "tous", "tout", "une", "vous", "votre",
+load_dotenv()
+
+MODEL_NAME = "gemini-3.5-flash-lite"
+
+
+RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "resume": {"type": "string"},
+        "sujet_principal": {"type": "string"},
+        "audience_cible": {"type": "string"},
+        "hook_reel": {"type": "string"},
+        "note_hook": {"type": "integer", "minimum": 0, "maximum": 10},
+        "note_clarte": {"type": "integer", "minimum": 0, "maximum": 10},
+        "note_structure": {"type": "integer", "minimum": 0, "maximum": 10},
+        "note_potentiel_viral": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10,
+        },
+        "diagnostic_3_premieres_secondes": {"type": "string"},
+        "promesse": {"type": "string"},
+        "preuve": {"type": "string"},
+        "appel_action": {"type": "string"},
+        "mots_remplissage": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "repetitions": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "phrases_a_supprimer": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "points_forts": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "points_faibles": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "recommandations": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "hooks_ameliores": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 3,
+            "maxItems": 3,
+        },
+        "description_tiktok": {"type": "string"},
+        "hashtags": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": [
+        "resume",
+        "sujet_principal",
+        "audience_cible",
+        "hook_reel",
+        "note_hook",
+        "note_clarte",
+        "note_structure",
+        "note_potentiel_viral",
+        "diagnostic_3_premieres_secondes",
+        "promesse",
+        "preuve",
+        "appel_action",
+        "mots_remplissage",
+        "repetitions",
+        "phrases_a_supprimer",
+        "points_forts",
+        "points_faibles",
+        "recommandations",
+        "hooks_ameliores",
+        "description_tiktok",
+        "hashtags",
+    ],
 }
 
-HOOK_MARKERS = {
-    "attention", "astuce", "erreur", "jamais", "pourquoi", "regarde",
-    "secret", "stop", "voici", "comment", "incroyable", "important",
-}
+
+def _score(value) -> int:
+    try:
+        return max(0, min(10, round(float(value))))
+    except (TypeError, ValueError):
+        return 0
 
 
-def _words(text: str) -> list[str]:
-    normalized = unicodedata.normalize("NFKD", text.lower())
-    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
-    return re.findall(r"[a-z0-9]+", normalized)
+def _list(value, limit=None) -> list[str]:
+    if not isinstance(value, list):
+        return []
+
+    result = []
+
+    for item in value:
+        text = str(item).strip()
+        if text and text not in result:
+            result.append(text)
+
+    return result[:limit] if limit else result
 
 
-def _sentences(text: str) -> list[str]:
-    return [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+|\n+", text.strip())
-        if sentence.strip()
-    ]
+def _hashtags(value) -> list[str]:
+    result = []
+
+    for hashtag in _list(value, 8):
+        cleaned = re.sub(r"\s+", "", hashtag)
+        if not cleaned.startswith("#"):
+            cleaned = f"#{cleaned}"
+        if cleaned != "#" and cleaned not in result:
+            result.append(cleaned)
+
+    return result
 
 
-def _clamp(value: float) -> int:
-    return max(1, min(10, round(value)))
+def _fallback(transcription: str, message: str) -> dict:
+    """Retour compatible si Gemini ou la transcription est indisponible."""
+    text = (transcription or "").strip()
+    first_sentence = re.split(r"(?<=[.!?])\s+|\n+", text)[0] if text else ""
 
-
-def _summary(sentences: list[str]) -> str:
-    return " ".join(sentences[:2])[:320]
+    return {
+        "resume": text[:320] if text else "Aucune parole fiable n'a été détectée.",
+        "sujet_principal": "",
+        "audience_cible": "",
+        "hook_reel": first_sentence,
+        "note_hook": 0,
+        "note_clarte": 0,
+        "note_structure": 0,
+        "note_potentiel_viral": 0,
+        "diagnostic_3_premieres_secondes": (
+            "L'analyse sémantique des paroles n'est pas disponible."
+        ),
+        "promesse": "",
+        "preuve": "",
+        "appel_action": "",
+        "points_forts": [],
+        "points_faibles": [message],
+        "recommandations": [
+            "Vérifier la transcription et la connexion à Gemini, puis relancer l'analyse."
+        ],
+        "hooks_ameliores": [],
+        "description_tiktok": "",
+        "hashtags": [],
+        "analyse_paroles": {
+            "disponible": False,
+            "erreur": message,
+            "mots_remplissage": [],
+            "repetitions": [],
+            "phrases_a_supprimer": [],
+        },
+    }
 
 
 def analyze_transcription(transcription: str) -> dict:
+    """Analyse les paroles avec Gemini sans modifier la signature historique."""
     text = (transcription or "").strip()
 
     if not text:
-        return {
-            "résumé": "Aucune parole fiable n'a été détectée.",
-            "note_hook": 0,
-            "note_clarte": 0,
-            "note_potentiel_viral": 0,
-            "points_forts": [],
-            "points_faibles": [
-                "L'audio ne contient pas assez de parole claire pour être analysé.",
-            ],
-            "hooks_améliores": [],
-            "description_tiktok": "",
-            "hashtags": [],
-        }
+        return _fallback(
+            text,
+            "Aucune parole suffisamment claire n'a été transcrite.",
+        )
 
-    words = _words(text)
-    sentences = _sentences(text)
-    word_count = len(words)
-    opening_words = words[:25]
+    api_key = os.getenv("GEMINI_API_KEY")
 
-    hook_hits = sum(word in HOOK_MARKERS for word in opening_words)
-    has_question = "?" in (sentences[0] if sentences else "")
-    hook_score = _clamp(3 + hook_hits * 1.5 + (2 if has_question else 0) + (1 if word_count >= 20 else 0))
+    if not api_key:
+        return _fallback(
+            text,
+            "La variable GEMINI_API_KEY est absente.",
+        )
 
-    average_sentence_length = word_count / len(sentences) if sentences else word_count
-    clarity_score = _clamp(
-        9 - max(0, average_sentence_length - 18) * 0.2 - (2 if word_count < 10 else 0)
-    )
-    viral_score = _clamp(
-        hook_score * 0.45 + clarity_score * 0.35 + (2 if 25 <= word_count <= 180 else 1)
-    )
+    prompt = f"""
+Tu es l'analyste éditorial de ViralCoach AI, spécialisé dans les vidéos
+TikTok, Reels et Shorts en français.
 
-    strengths = []
-    weaknesses = []
+Analyse uniquement la transcription fournie. Ne déduis aucun fait qui n'est
+pas prononcé. Si la transcription semble contenir un mot mal reconnu, ne le
+réutilise pas comme sujet sans contexte suffisant.
 
-    if hook_score >= 7:
-        strengths.append("L'ouverture attire rapidement l'attention.")
-    else:
-        weaknesses.append("L'ouverture manque d'une promesse ou d'une curiosité immédiate.")
+TRANSCRIPTION EXACTE :
+---
+{text}
+---
 
-    if clarity_score >= 7:
-        strengths.append("Le message est globalement simple et facile à suivre.")
-    else:
-        weaknesses.append("Les phrases gagneraient à être plus courtes et plus directes.")
+Consignes :
+- Le hook réel correspond aux premiers mots effectivement prononcés.
+- Évalue la promesse, la clarté, la progression, la preuve et l'appel à l'action.
+- Identifie les hésitations, répétitions et phrases réellement supprimables.
+- Les trois hooks améliorés doivent être naturels, spécifiques au sujet réel et
+  immédiatement prononçables. N'assemble jamais une liste de mots-clés.
+- N'invente ni chiffre, ni résultat, ni bénéfice absent de la transcription.
+- Si le sujet reste incertain, écris des hooks prudents sans nom propre inventé.
+- La description TikTok doit rester fidèle au contenu.
+- Donne des recommandations concrètes et courtes.
+- Tous les scores sont sur 10.
+"""
 
-    if 25 <= word_count <= 180:
-        strengths.append("La quantité de contenu est adaptée à une vidéo courte.")
-    elif word_count < 25:
-        weaknesses.append("La transcription est trop courte pour développer clairement la valeur promise.")
-    else:
-        weaknesses.append("Le discours est dense pour une vidéo courte ; supprime les répétitions.")
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.15,
+                response_mime_type="application/json",
+                response_schema=RESPONSE_SCHEMA,
+            ),
+        )
 
-    if not strengths:
-        strengths.append("Le sujet peut servir de base à une version plus directe.")
-    if not weaknesses:
-        weaknesses.append("Ajoute une preuve concrète ou un appel à l'action plus net.")
+        if not response.text:
+            return _fallback(text, "Gemini n'a retourné aucune analyse.")
 
-    content_words = [word for word in words if len(word) > 3 and word not in STOPWORDS]
-    keywords = [word for word, _ in Counter(content_words).most_common(5)]
-    topic = " ".join(keywords[:3]) or "ce sujet"
+        data = json.loads(response.text)
+    except Exception as error:
+        return _fallback(text, f"Erreur Gemini : {error}")
 
-    hooks = [
-        f"Tu fais peut-être cette erreur avec {topic} — voici comment la corriger.",
-        f"Voici la méthode la plus simple pour améliorer {topic} dès aujourd'hui.",
-        f"Avant de continuer avec {topic}, regarde ces 3 points essentiels.",
-    ]
-
-    hashtags = ["#tiktokfr", "#conseils", "#createurcontenu"]
-    hashtags.extend(f"#{word}" for word in keywords[:3])
+    hooks = _list(data.get("hooks_ameliores"), 3)
 
     return {
-        "résumé": _summary(sentences),
-        "note_hook": hook_score,
-        "note_clarte": clarity_score,
-        "note_potentiel_viral": viral_score,
-        "points_forts": strengths,
-        "points_faibles": weaknesses,
-        "hooks_améliores": hooks,
-        "description_tiktok": (
-            f"{_summary(sentences)}\n\n"
-            "Dis-moi en commentaire ce que tu veux améliorer dans ta prochaine vidéo."
-        ),
-        "hashtags": list(dict.fromkeys(hashtags)),
-            }
+        "resume": str(data.get("resume", "")).strip(),
+        "sujet_principal": str(data.get("sujet_principal", "")).strip(),
+        "audience_cible": str(data.get("audience_cible", "")).strip(),
+        "hook_reel": str(data.get("hook_reel", "")).strip(),
+        "note_hook": _score(data.get("note_hook")),
+        "note_clarte": _score(data.get("note_clarte")),
+        "note_structure": _score(data.get("note_structure")),
+        "note_potentiel_viral": _score(data.get("note_potentiel_viral")),
+        "diagnostic_3_premieres_secondes": str(
+            data.get("diagnostic_3_premieres_secondes", "")
+        ).strip(),
+        "promesse": str(data.get("promesse", "")).strip(),
+        "preuve": str(data.get("preuve", "")).strip(),
+        "appel_action": str(data.get("appel_action", "")).strip(),
+        "points_forts": _list(data.get("points_forts")),
+        "points_faibles": _list(data.get("points_faibles")),
+        "recommandations": _list(data.get("recommandations")),
+        "hooks_ameliores": hooks,
+        "description_tiktok": str(data.get("description_tiktok", "")).strip(),
+        "hashtags": _hashtags(data.get("hashtags")),
+        "analyse_paroles": {
+            "disponible": True,
+            "modele": MODEL_NAME,
+            "hook_reel": str(data.get("hook_reel", "")).strip(),
+            "promesse": str(data.get("promesse", "")).strip(),
+            "preuve": str(data.get("preuve", "")).strip(),
+            "appel_action": str(data.get("appel_action", "")).strip(),
+            "mots_remplissage": _list(data.get("mots_remplissage")),
+            "repetitions": _list(data.get("repetitions")),
+            "phrases_a_supprimer": _list(data.get("phrases_a_supprimer")),
+        },
+    }
