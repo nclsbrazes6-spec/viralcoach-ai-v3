@@ -11,6 +11,9 @@
 
     <title>ViralCoach AI V5.4</title>
 
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         :root {
             --background: #07111f;
@@ -1096,6 +1099,190 @@
             color: var(--orange);
         }
 
+
+        /* ==================================================
+           AUTHENTIFICATION SUPABASE
+        ================================================== */
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .auth-button {
+            width: auto;
+            margin-top: 0;
+            padding: 9px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+        }
+
+        .auth-button.secondary {
+            color: var(--text);
+            background: #172b40;
+            border: 1px solid var(--border);
+        }
+
+        .auth-button.danger {
+            color: #ffd6d6;
+            background: #3b2028;
+            border: 1px solid #683640;
+        }
+
+        .account-box {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 11px;
+            background: #0b1928;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .account-email {
+            max-width: 230px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--muted);
+        }
+
+        .credit-badge {
+            color: var(--green);
+            font-weight: 800;
+        }
+
+        .auth-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+            background: rgba(3, 9, 17, .82);
+            backdrop-filter: blur(8px);
+        }
+
+        .auth-overlay.open {
+            display: flex;
+        }
+
+        .auth-modal {
+            width: min(460px, 100%);
+            padding: 28px;
+            background: linear-gradient(
+                145deg,
+                var(--panel-light),
+                var(--panel)
+            );
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            box-shadow: 0 24px 80px #0009;
+        }
+
+        .auth-modal-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+        .auth-close {
+            width: auto;
+            min-width: 38px;
+            margin: 0;
+            padding: 8px 11px;
+            color: var(--text);
+            background: #172b40;
+        }
+
+        .auth-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .auth-tab {
+            margin: 0;
+            color: var(--muted);
+            background: #0b1928;
+            border: 1px solid var(--border);
+        }
+
+        .auth-tab.active {
+            color: #062018;
+            background: var(--green);
+            border-color: transparent;
+        }
+
+        .auth-field {
+            margin-bottom: 14px;
+        }
+
+        .auth-field label {
+            display: block;
+            margin-bottom: 7px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .auth-field input {
+            width: 100%;
+            padding: 13px 14px;
+            color: var(--text);
+            background: #0b1928;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .auth-field input:focus {
+            border-color: var(--green);
+        }
+
+        .auth-message {
+            display: none;
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+
+        .auth-message.success {
+            display: block;
+            color: #c5f7e4;
+            background: #0b1d26;
+            border: 1px solid #24483f;
+        }
+
+        .auth-message.error {
+            display: block;
+            color: #ffd6d6;
+            background: #4b2027;
+            border: 1px solid #753540;
+        }
+
+        .auth-required-note {
+            margin-top: 12px;
+            color: var(--orange);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .locked-upload {
+            opacity: .55;
+            pointer-events: none;
+        }
+
         /* ==================================================
            RESPONSIVE
         ================================================== */
@@ -1153,6 +1340,111 @@
 
 <body>
 
+    <!-- =====================================================
+         AUTHENTIFICATION SUPABASE
+    ====================================================== -->
+
+    <div
+        class="auth-overlay"
+        id="authOverlay"
+        aria-hidden="true"
+    >
+        <div class="auth-modal">
+
+            <div class="auth-modal-header">
+                <div>
+                    <div class="label">
+                        Compte ViralCoach
+                    </div>
+
+                    <h2 id="authTitle">
+                        Se connecter
+                    </h2>
+
+                    <p id="authSubtitle">
+                        Retrouve tes crédits et lance tes analyses.
+                    </p>
+                </div>
+
+                <button
+                    class="auth-close"
+                    id="authClose"
+                    type="button"
+                    aria-label="Fermer"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="auth-tabs">
+
+                <button
+                    class="auth-tab active"
+                    id="loginTab"
+                    type="button"
+                >
+                    Connexion
+                </button>
+
+                <button
+                    class="auth-tab"
+                    id="signupTab"
+                    type="button"
+                >
+                    Inscription
+                </button>
+
+            </div>
+
+            <form id="authForm">
+
+                <div class="auth-field">
+                    <label for="authEmail">
+                        Adresse e-mail
+                    </label>
+
+                    <input
+                        id="authEmail"
+                        type="email"
+                        autocomplete="email"
+                        required
+                        placeholder="toi@exemple.com"
+                    >
+                </div>
+
+                <div class="auth-field">
+                    <label for="authPassword">
+                        Mot de passe
+                    </label>
+
+                    <input
+                        id="authPassword"
+                        type="password"
+                        autocomplete="current-password"
+                        minlength="6"
+                        required
+                        placeholder="6 caractères minimum"
+                    >
+                </div>
+
+                <button
+                    id="authSubmit"
+                    type="submit"
+                >
+                    Se connecter
+                </button>
+
+                <div
+                    class="auth-message"
+                    id="authMessage"
+                ></div>
+
+            </form>
+
+        </div>
+    </div>
+
+
     <main class="container">
 
         <!-- =================================================
@@ -1165,8 +1457,54 @@
                 ViralCoach <span>AI</span>
             </div>
 
-            <div class="version">
-                Rapport V5.4
+            <div class="header-actions">
+
+                <div
+                    class="account-box"
+                    id="accountBox"
+                >
+                    <span
+                        class="account-email"
+                        id="accountEmail"
+                    ></span>
+
+                    <span
+                        class="credit-badge"
+                        id="creditBadge"
+                    >
+                        0 crédits
+                    </span>
+                </div>
+
+                <button
+                    class="auth-button secondary"
+                    id="loginButton"
+                    type="button"
+                >
+                    Se connecter
+                </button>
+
+                <button
+                    class="auth-button"
+                    id="signupButton"
+                    type="button"
+                >
+                    Créer un compte
+                </button>
+
+                <button
+                    class="auth-button danger"
+                    id="logoutButton"
+                    type="button"
+                    style="display:none;"
+                >
+                    Se déconnecter
+                </button>
+
+                <div class="version">
+                    Rapport V5.4
+                </div>
+
             </div>
 
         </header>
@@ -1235,6 +1573,13 @@
                 >
                     Analyser la vidéo
                 </button>
+
+                <div
+                    class="auth-required-note"
+                    id="authRequiredNote"
+                >
+                    Connecte-toi pour analyser une vidéo.
+                </div>
 
 
                 <div
@@ -1599,6 +1944,538 @@
 
     <script>
 
+
+        /* =====================================================
+           SUPABASE AUTH
+        ===================================================== */
+
+        let supabaseClient = null;
+        let currentSession = null;
+        let currentProfile = null;
+        let authMode = "login";
+
+        const authOverlay =
+            document.getElementById("authOverlay");
+
+        const authForm =
+            document.getElementById("authForm");
+
+        const authEmail =
+            document.getElementById("authEmail");
+
+        const authPassword =
+            document.getElementById("authPassword");
+
+        const authSubmit =
+            document.getElementById("authSubmit");
+
+        const authMessage =
+            document.getElementById("authMessage");
+
+        const authTitle =
+            document.getElementById("authTitle");
+
+        const authSubtitle =
+            document.getElementById("authSubtitle");
+
+        const loginTab =
+            document.getElementById("loginTab");
+
+        const signupTab =
+            document.getElementById("signupTab");
+
+        const loginButton =
+            document.getElementById("loginButton");
+
+        const signupButton =
+            document.getElementById("signupButton");
+
+        const logoutButton =
+            document.getElementById("logoutButton");
+
+        const authClose =
+            document.getElementById("authClose");
+
+        const accountBox =
+            document.getElementById("accountBox");
+
+        const accountEmail =
+            document.getElementById("accountEmail");
+
+        const creditBadge =
+            document.getElementById("creditBadge");
+
+        const authRequiredNote =
+            document.getElementById("authRequiredNote");
+
+
+        async function initializeSupabase() {
+
+            try {
+
+                const response =
+                    await fetch("/api/public-config");
+
+                if (!response.ok) {
+                    throw new Error(
+                        "Configuration Supabase indisponible."
+                    );
+                }
+
+                const config =
+                    await response.json();
+
+                if (
+                    !config.supabase_url
+                    || !config.supabase_anon_key
+                ) {
+                    throw new Error(
+                        "SUPABASE_URL ou SUPABASE_ANON_KEY absente."
+                    );
+                }
+
+                supabaseClient =
+                    window.supabase.createClient(
+                        config.supabase_url,
+                        config.supabase_anon_key
+                    );
+
+                const {
+                    data: { session }
+                } =
+                    await supabaseClient.auth.getSession();
+
+                currentSession = session;
+
+                await refreshAccountUI();
+
+                supabaseClient.auth.onAuthStateChange(
+                    async function (
+                        _event,
+                        session
+                    ) {
+                        currentSession = session;
+                        await refreshAccountUI();
+                    }
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "SUPABASE INIT ERROR:",
+                    error
+                );
+
+                authRequiredNote.textContent =
+                    "Configuration du compte indisponible.";
+            }
+        }
+
+
+        async function loadProfile() {
+
+            currentProfile = null;
+
+            if (
+                !supabaseClient
+                || !currentSession?.user
+            ) {
+                return;
+            }
+
+            const {
+                data,
+                error
+            } =
+                await supabaseClient
+                    .from("profiles")
+                    .select(
+                        "id,email,credits,plan,created_at"
+                    )
+                    .eq(
+                        "id",
+                        currentSession.user.id
+                    )
+                    .single();
+
+            if (error) {
+
+                console.error(
+                    "PROFILE ERROR:",
+                    error
+                );
+
+                return;
+            }
+
+            currentProfile = data;
+        }
+
+
+        async function refreshAccountUI() {
+
+            await loadProfile();
+
+            const connected =
+                Boolean(
+                    currentSession?.user
+                );
+
+            accountBox.style.display =
+                connected
+                    ? "flex"
+                    : "none";
+
+            logoutButton.style.display =
+                connected
+                    ? "inline-flex"
+                    : "none";
+
+            loginButton.style.display =
+                connected
+                    ? "none"
+                    : "inline-flex";
+
+            signupButton.style.display =
+                connected
+                    ? "none"
+                    : "inline-flex";
+
+            if (connected) {
+
+                accountEmail.textContent =
+                    currentSession.user.email
+                    || "Compte connecté";
+
+                const credits =
+                    Number(
+                        currentProfile?.credits
+                        ?? 0
+                    );
+
+                creditBadge.textContent =
+                    credits
+                    + (
+                        credits > 1
+                            ? " crédits"
+                            : " crédit"
+                    );
+
+                authRequiredNote.textContent =
+                    credits > 0
+                        ? (
+                            credits
+                            + " analyse"
+                            + (
+                                credits > 1
+                                    ? "s"
+                                    : ""
+                            )
+                            + " disponible"
+                            + (
+                                credits > 1
+                                    ? "s"
+                                    : ""
+                            )
+                            + "."
+                        )
+                        : "Tu n'as plus de crédit disponible.";
+
+            } else {
+
+                accountEmail.textContent = "";
+                creditBadge.textContent = "0 crédits";
+
+                authRequiredNote.textContent =
+                    "Connecte-toi pour analyser une vidéo.";
+            }
+
+            refreshAnalyzeButton();
+        }
+
+
+        function refreshAnalyzeButton() {
+
+            const hasVideo =
+                Boolean(
+                    videoInput?.files?.[0]
+                );
+
+            const connected =
+                Boolean(
+                    currentSession?.user
+                );
+
+            const credits =
+                Number(
+                    currentProfile?.credits
+                    ?? 0
+                );
+
+            analyzeButton.disabled =
+                !hasVideo
+                || !connected
+                || credits <= 0;
+        }
+
+
+        function setAuthMode(mode) {
+
+            authMode = mode;
+
+            const isSignup =
+                mode === "signup";
+
+            loginTab.classList.toggle(
+                "active",
+                !isSignup
+            );
+
+            signupTab.classList.toggle(
+                "active",
+                isSignup
+            );
+
+            authTitle.textContent =
+                isSignup
+                    ? "Créer un compte"
+                    : "Se connecter";
+
+            authSubtitle.textContent =
+                isSignup
+                    ? "5 crédits gratuits à la création de ton compte."
+                    : "Retrouve tes crédits et lance tes analyses.";
+
+            authSubmit.textContent =
+                isSignup
+                    ? "Créer mon compte"
+                    : "Se connecter";
+
+            authPassword.autocomplete =
+                isSignup
+                    ? "new-password"
+                    : "current-password";
+
+            authMessage.className =
+                "auth-message";
+
+            authMessage.textContent =
+                "";
+        }
+
+
+        function openAuth(mode) {
+
+            setAuthMode(mode);
+
+            authOverlay.classList.add(
+                "open"
+            );
+
+            authOverlay.setAttribute(
+                "aria-hidden",
+                "false"
+            );
+
+            setTimeout(
+                () => authEmail.focus(),
+                50
+            );
+        }
+
+
+        function closeAuth() {
+
+            authOverlay.classList.remove(
+                "open"
+            );
+
+            authOverlay.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+        }
+
+
+        loginButton.addEventListener(
+            "click",
+            () => openAuth("login")
+        );
+
+        signupButton.addEventListener(
+            "click",
+            () => openAuth("signup")
+        );
+
+        loginTab.addEventListener(
+            "click",
+            () => setAuthMode("login")
+        );
+
+        signupTab.addEventListener(
+            "click",
+            () => setAuthMode("signup")
+        );
+
+        authClose.addEventListener(
+            "click",
+            closeAuth
+        );
+
+        authOverlay.addEventListener(
+            "click",
+            function (event) {
+                if (event.target === authOverlay) {
+                    closeAuth();
+                }
+            }
+        );
+
+
+        logoutButton.addEventListener(
+            "click",
+            async function () {
+
+                if (!supabaseClient) {
+                    return;
+                }
+
+                await supabaseClient.auth.signOut();
+
+                currentSession = null;
+                currentProfile = null;
+
+                await refreshAccountUI();
+            }
+        );
+
+
+        authForm.addEventListener(
+            "submit",
+            async function (event) {
+
+                event.preventDefault();
+
+                if (!supabaseClient) {
+
+                    authMessage.className =
+                        "auth-message error";
+
+                    authMessage.textContent =
+                        "Supabase n'est pas encore initialisé.";
+
+                    return;
+                }
+
+                const email =
+                    authEmail.value.trim();
+
+                const password =
+                    authPassword.value;
+
+                authSubmit.disabled = true;
+
+                authMessage.className =
+                    "auth-message";
+
+                authMessage.textContent =
+                    "";
+
+                try {
+
+                    if (authMode === "signup") {
+
+                        const {
+                            data,
+                            error
+                        } =
+                            await supabaseClient
+                                .auth
+                                .signUp({
+                                    email,
+                                    password
+                                });
+
+                        if (error) {
+                            throw error;
+                        }
+
+                        if (data.session) {
+
+                            authMessage.className =
+                                "auth-message success";
+
+                            authMessage.textContent =
+                                "Compte créé. Tu es connecté.";
+
+                            currentSession =
+                                data.session;
+
+                            await refreshAccountUI();
+
+                            setTimeout(
+                                closeAuth,
+                                700
+                            );
+
+                        } else {
+
+                            authMessage.className =
+                                "auth-message success";
+
+                            authMessage.textContent =
+                                "Compte créé. Consulte ton e-mail pour confirmer ton inscription.";
+                        }
+
+                    } else {
+
+                        const {
+                            data,
+                            error
+                        } =
+                            await supabaseClient
+                                .auth
+                                .signInWithPassword({
+                                    email,
+                                    password
+                                });
+
+                        if (error) {
+                            throw error;
+                        }
+
+                        currentSession =
+                            data.session;
+
+                        await refreshAccountUI();
+
+                        closeAuth();
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "AUTH ERROR:",
+                        error
+                    );
+
+                    authMessage.className =
+                        "auth-message error";
+
+                    authMessage.textContent =
+                        error.message
+                        || "Erreur d'authentification.";
+
+                } finally {
+
+                    authSubmit.disabled = false;
+                }
+            }
+        );
+
+
+        initializeSupabase();
+
         /* =====================================================
            ÉLÉMENTS
         ===================================================== */
@@ -1653,11 +2530,10 @@
 
                 if (!video) {
 
-                    analyzeButton.disabled =
-                        true;
-
                     filename.textContent =
                         "";
+
+                    refreshAnalyzeButton();
 
                     return;
                 }
@@ -1667,8 +2543,7 @@
                     video.name;
 
 
-                analyzeButton.disabled =
-                    false;
+                refreshAnalyzeButton();
             }
         );
 
@@ -1686,6 +2561,32 @@
 
 
                 if (!video) {
+                    return;
+                }
+
+
+                if (!currentSession?.user) {
+
+                    openAuth("login");
+                    return;
+                }
+
+
+                const credits =
+                    Number(
+                        currentProfile?.credits
+                        ?? 0
+                    );
+
+
+                if (credits <= 0) {
+
+                    errorBox.textContent =
+                        "Tu n'as plus de crédit disponible.";
+
+                    errorBox.style.display =
+                        "block";
+
                     return;
                 }
 
@@ -1731,6 +2632,11 @@
                             "/api/upload-video",
                             {
                                 method: "POST",
+                                headers: {
+                                    "Authorization":
+                                        "Bearer "
+                                        + currentSession.access_token
+                                },
                                 body: formData
                             }
                         );
@@ -1782,6 +2688,9 @@
                     );
 
 
+                    await refreshAccountUI();
+
+
                 } catch (error) {
 
                     console.error(
@@ -1805,8 +2714,7 @@
                         "none";
 
 
-                    analyzeButton.disabled =
-                        false;
+                    refreshAnalyzeButton();
 
 
                     analyzeButton.textContent =
