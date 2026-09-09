@@ -1,13 +1,23 @@
 from pathlib import Path
+import os
 import shutil
 import uuid
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import requests
+
+from fastapi import (
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    UploadFile,
+)
+
 from fastapi.responses import FileResponse
 
 
 # ============================================================
-# SERVICES
+# SERVICES VIRALCOACH
 # ============================================================
 
 from app.services.video_processor import (
@@ -65,6 +75,26 @@ app = FastAPI(
 
 
 # ============================================================
+# CONFIGURATION SUPABASE
+# ============================================================
+
+SUPABASE_URL = os.getenv(
+    "SUPABASE_URL",
+    "",
+).rstrip("/")
+
+SUPABASE_ANON_KEY = os.getenv(
+    "SUPABASE_ANON_KEY",
+    "",
+)
+
+SUPABASE_SECRET_KEY = os.getenv(
+    "SUPABASE_SECRET_KEY",
+    "",
+)
+
+
+# ============================================================
 # CHEMINS
 # ============================================================
 
@@ -98,66 +128,35 @@ OUTPUT_DIR = (
 )
 
 
-UPLOAD_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+for directory in (
+    UPLOAD_DIR,
+    FRAMES_DIR,
+    AUDIO_DIR,
+    OUTPUT_DIR,
+):
 
-FRAMES_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
-
-AUDIO_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
-
-OUTPUT_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+    directory.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
 
 # ============================================================
-# OUTIL : NORMALISATION TRANSCRIPTION
+# NORMALISATION TRANSCRIPTION
 # ============================================================
 
 def normalize_transcription(
     transcription_raw,
 ) -> str:
 
-    """
-    Convertit n'importe quel format de transcription
-    en chaîne de caractères.
-
-    Compatible :
-    - str
-    - dict OpenAI
-    - objet avec attribut text
-    - None
-    """
-
     if transcription_raw is None:
         return ""
-
-    # --------------------------------------------------------
-    # CAS 1 : DÉJÀ UNE CHAÎNE
-    # --------------------------------------------------------
 
     if isinstance(
         transcription_raw,
         str,
     ):
-
-        return (
-            transcription_raw
-            .strip()
-        )
-
-    # --------------------------------------------------------
-    # CAS 2 : DICTIONNAIRE
-    # --------------------------------------------------------
+        return transcription_raw.strip()
 
     if isinstance(
         transcription_raw,
@@ -171,9 +170,8 @@ def normalize_transcription(
             "transcript",
         ):
 
-            value = (
-                transcription_raw
-                .get(key)
+            value = transcription_raw.get(
+                key
             )
 
             if isinstance(
@@ -186,12 +184,7 @@ def normalize_transcription(
                 if value:
                     return value
 
-        # Aucun texte exploitable
         return ""
-
-    # --------------------------------------------------------
-    # CAS 3 : OBJET OPENAI
-    # --------------------------------------------------------
 
     text_attribute = getattr(
         transcription_raw,
@@ -204,21 +197,290 @@ def normalize_transcription(
         str,
     ):
 
-        return (
-            text_attribute
-            .strip()
+        return text_attribute.strip()
+
+    return str(
+        transcription_raw
+    ).strip()
+
+
+# ============================================================
+# SUPABASE — CONFIGURATION
+# ============================================================
+
+def check_supabase_config():
+
+    if not SUPABASE_URL:
+        raise RuntimeError(
+            "SUPABASE_URL absente."
         )
 
-    # --------------------------------------------------------
-    # CAS FINAL
-    # --------------------------------------------------------
-
-    return (
-        str(
-            transcription_raw
+    if not SUPABASE_ANON_KEY:
+        raise RuntimeError(
+            "SUPABASE_ANON_KEY absente."
         )
-        .strip()
+
+    if not SUPABASE_SECRET_KEY:
+        raise RuntimeError(
+            "SUPABASE_SECRET_KEY absente."
+        )
+
+
+# ============================================================
+# SUPABASE — IDENTIFICATION UTILISATEUR
+# ============================================================
+
+def get_authenticated_user(
+    authorization: str | None,
+) -> dict:
+
+    check_supabase_config()
+
+    if not authorization:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Connexion requise.",
+        )
+
+    parts = authorization.split(
+        " ",
+        1,
     )
+
+    if (
+        len(parts) != 2
+        or parts[0].lower() != "bearer"
+    ):
+
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Token d'authentification invalide."
+            ),
+        )
+
+    access_token = (
+        parts[1].strip()
+    )
+
+    if not access_token:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Token vide.",
+        )
+
+    response = requests.get(
+        (
+            f"{SUPABASE_URL}"
+            "/auth/v1/user"
+        ),
+        headers={
+            "apikey":
+                SUPABASE_ANON_KEY,
+            "Authorization":
+                f"Bearer {access_token}",
+        },
+        timeout=15,
+    )
+
+    if response.status_code != 200:
+
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Session expirée ou "
+                "utilisateur non connecté."
+            ),
+        )
+
+    user = response.json()
+
+    if not user.get("id"):
+
+        raise HTTPException(
+            status_code=401,
+            detail="Utilisateur invalide.",
+        )
+
+    return user
+
+
+# ============================================================
+# SUPABASE — HEADERS ADMIN SERVEUR
+# ============================================================
+
+def supabase_admin_headers() -> dict:
+
+    check_supabase_config()
+
+    return {
+        "apikey":
+            SUPABASE_SECRET_KEY,
+
+        "Authorization":
+            (
+                "Bearer "
+                + SUPABASE_SECRET_KEY
+            ),
+
+        "Content-Type":
+            "application/json",
+    }
+
+
+# ============================================================
+# SUPABASE — PROFIL
+# ============================================================
+
+def get_user_profile(
+    user_id: str,
+) -> dict:
+
+    response = requests.get(
+        (
+            f"{SUPABASE_URL}"
+            "/rest/v1/profiles"
+        ),
+        headers={
+            **supabase_admin_headers(),
+            "Accept":
+                "application/json",
+        },
+        params={
+            "id":
+                f"eq.{user_id}",
+            "select":
+                (
+                    "id,email,"
+                    "credits,plan,"
+                    "created_at"
+                ),
+        },
+        timeout=15,
+    )
+
+    if response.status_code not in (
+        200,
+        206,
+    ):
+
+        raise RuntimeError(
+            "Impossible de lire "
+            "le profil Supabase : "
+            + response.text
+        )
+
+    profiles = response.json()
+
+    if not profiles:
+
+        raise RuntimeError(
+            "Profil utilisateur introuvable."
+        )
+
+    return profiles[0]
+
+
+# ============================================================
+# SUPABASE — CONSOMMER UN CRÉDIT
+# ============================================================
+
+def consume_credit(
+    user_id: str,
+) -> int:
+
+    response = requests.post(
+        (
+            f"{SUPABASE_URL}"
+            "/rest/v1/rpc/"
+            "consume_credit"
+        ),
+        headers=(
+            supabase_admin_headers()
+        ),
+        json={
+            "p_user_id":
+                user_id,
+        },
+        timeout=15,
+    )
+
+    if response.status_code not in (
+        200,
+        201,
+    ):
+
+        text = response.text
+
+        if "NO_CREDITS" in text:
+
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    "Tu n'as plus "
+                    "de crédit disponible."
+                ),
+            )
+
+        raise RuntimeError(
+            "Impossible de consommer "
+            "le crédit : "
+            + text
+        )
+
+    data = response.json()
+
+    try:
+        return int(data)
+
+    except Exception:
+        return 0
+
+
+# ============================================================
+# SUPABASE — REMBOURSER UN CRÉDIT
+# ============================================================
+
+def refund_credit(
+    user_id: str,
+):
+
+    try:
+
+        response = requests.post(
+            (
+                f"{SUPABASE_URL}"
+                "/rest/v1/rpc/"
+                "refund_credit"
+            ),
+            headers=(
+                supabase_admin_headers()
+            ),
+            json={
+                "p_user_id":
+                    user_id,
+            },
+            timeout=15,
+        )
+
+        if response.status_code not in (
+            200,
+            201,
+        ):
+
+            print(
+                "ERREUR REMBOURSEMENT CREDIT:",
+                response.text,
+            )
+
+    except Exception as error:
+
+        print(
+            "ERREUR REMBOURSEMENT CREDIT:",
+            repr(error),
+        )
 
 
 # ============================================================
@@ -236,8 +498,7 @@ def show_interface():
         raise HTTPException(
             status_code=404,
             detail=(
-                "Interface ViralCoach "
-                "introuvable."
+                "Interface ViralCoach introuvable."
             ),
         )
 
@@ -245,11 +506,6 @@ def show_interface():
         INTERFACE_FILE
     )
 
-
-# ============================================================
-# HEAD /
-# ÉVITE LE 405 DES TESTS RENDER
-# ============================================================
 
 @app.head(
     "/",
@@ -270,10 +526,82 @@ def head_interface():
 def health():
 
     return {
-        "status": "healthy",
-        "version": "5.5.0",
-        "app": "ViralCoach AI V5.5",
-        "remix_engine": "global-v3",
+        "status":
+            "healthy",
+
+        "version":
+            "5.5.0",
+
+        "app":
+            "ViralCoach AI V5.5",
+
+        "remix_engine":
+            "global-v3",
+
+        "auth":
+            "supabase",
+    }
+
+
+# ============================================================
+# CONFIGURATION PUBLIQUE
+# ============================================================
+
+@app.get(
+    "/api/public-config"
+)
+def public_config():
+
+    return {
+        "supabase_url":
+            SUPABASE_URL,
+
+        "supabase_anon_key":
+            SUPABASE_ANON_KEY,
+    }
+
+
+# ============================================================
+# PROFIL UTILISATEUR
+# ============================================================
+
+@app.get(
+    "/api/me"
+)
+def get_me(
+    authorization:
+        str | None
+        = Header(
+            default=None
+        ),
+):
+
+    user = get_authenticated_user(
+        authorization
+    )
+
+    profile = get_user_profile(
+        user["id"]
+    )
+
+    return {
+        "id":
+            user["id"],
+
+        "email":
+            user.get("email"),
+
+        "credits":
+            profile.get(
+                "credits",
+                0,
+            ),
+
+        "plan":
+            profile.get(
+                "plan",
+                "free",
+            ),
     }
 
 
@@ -302,8 +630,7 @@ def download_remix(
         raise HTTPException(
             status_code=404,
             detail=(
-                "Vidéo remontée "
-                "introuvable."
+                "Vidéo remontée introuvable."
             ),
         )
 
@@ -339,8 +666,7 @@ def view_original(
         raise HTTPException(
             status_code=404,
             detail=(
-                "Vidéo originale "
-                "introuvable."
+                "Vidéo originale introuvable."
             ),
         )
 
@@ -351,20 +677,83 @@ def view_original(
 
 
 # ============================================================
-# UPLOAD + ANALYSE VIDÉO
+# ANALYSE VIDÉO PROTÉGÉE
 # ============================================================
 
 @app.post(
     "/api/upload-video"
 )
 async def upload_video(
-    video: UploadFile = File(...),
+    video:
+        UploadFile
+        = File(...),
+
+    authorization:
+        str | None
+        = Header(
+            default=None
+        ),
 ):
+
+    user_id = None
+    credit_consumed = False
 
     try:
 
         # ====================================================
-        # 1. IDENTIFIANT VIDÉO
+        # 1. AUTHENTIFICATION
+        # ====================================================
+
+        user = get_authenticated_user(
+            authorization
+        )
+
+        user_id = user["id"]
+
+        profile = get_user_profile(
+            user_id
+        )
+
+        current_credits = int(
+            profile.get(
+                "credits",
+                0,
+            )
+        )
+
+        if current_credits <= 0:
+
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    "Tu n'as plus "
+                    "de crédit disponible."
+                ),
+            )
+
+
+        # ====================================================
+        # 2. CONSOMMATION DU CRÉDIT
+        # ====================================================
+
+        remaining_credits = (
+            consume_credit(
+                user_id
+            )
+        )
+
+        credit_consumed = True
+
+        print(
+            "CREDIT CONSOMME:",
+            user_id,
+            "RESTE:",
+            remaining_credits,
+        )
+
+
+        # ====================================================
+        # 3. IDENTIFIANT VIDÉO
         # ====================================================
 
         video_id = (
@@ -415,12 +804,11 @@ async def upload_video(
 
 
         # ====================================================
-        # 2. SAUVEGARDE VIDÉO
+        # 4. SAUVEGARDE VIDÉO
         # ====================================================
 
         print(
-            "VIRALCOACH : "
-            "sauvegarde vidéo..."
+            "VIRALCOACH : sauvegarde vidéo..."
         )
 
         with video_path.open(
@@ -434,32 +822,12 @@ async def upload_video(
 
 
         # ====================================================
-        # 3. EXTRACTION FRAMES
+        # 5. EXTRACTION FRAMES
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "extraction frames..."
-        )
 
         frames = extract_frames(
             video_path,
             frame_directory,
-        )
-
-        print(
-            "FRAMES:",
-            len(frames),
-        )
-
-
-        # ====================================================
-        # 4. ANALYSE VISUELLE
-        # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "analyse visuelle..."
         )
 
         analyse_visuelle = (
@@ -470,13 +838,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 5. EXTRACTION AUDIO
+        # 6. EXTRACTION AUDIO
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "extraction audio..."
-        )
 
         extracted_audio = (
             extract_audio(
@@ -487,13 +850,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 6. TRANSCRIPTION OPENAI
+        # 7. TRANSCRIPTION
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "transcription OpenAI..."
-        )
 
         transcription_raw = (
             transcribe(
@@ -503,21 +861,10 @@ async def upload_video(
             )
         )
 
-        # ----------------------------------------------------
-        # NORMALISATION CRITIQUE
-        # ----------------------------------------------------
-
         transcription = (
             normalize_transcription(
                 transcription_raw
             )
-        )
-
-        print(
-            "TRANSCRIPTION RAW TYPE:",
-            type(
-                transcription_raw
-            ).__name__,
         )
 
         print(
@@ -527,20 +874,10 @@ async def upload_video(
             ).__name__,
         )
 
-        print(
-            "TRANSCRIPTION:",
-            transcription[:300],
-        )
-
 
         # ====================================================
-        # 7. ANALYSE TRANSCRIPTION
+        # 8. ANALYSE TRANSCRIPTION
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "analyse transcription..."
-        )
 
         analyse_transcription = (
             analyze_transcription(
@@ -550,7 +887,7 @@ async def upload_video(
 
 
         # ====================================================
-        # 8. DURÉE VIDÉO
+        # 9. DURÉE
         # ====================================================
 
         duration_seconds = (
@@ -561,25 +898,15 @@ async def upload_video(
             )
         )
 
-        print(
-            "DURATION:",
-            duration_seconds,
-        )
-
 
         # ====================================================
-        # 9. ANALYSE MONTAGE
+        # 10. MONTAGE
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "analyse montage..."
-        )
 
         analyse_montage = (
             analyze_montage(
-                frames_count=len(
-                    frames
+                frames_count=(
+                    len(frames)
                 ),
                 duration_seconds=(
                     duration_seconds
@@ -592,13 +919,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 10. ANALYSE RÉTENTION
+        # 11. RÉTENTION
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "analyse rétention..."
-        )
 
         analyse_retention = (
             analyze_retention(
@@ -616,13 +938,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 11. DÉTECTION SCÈNES
+        # 12. SCÈNES
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "détection scènes..."
-        )
 
         analyse_decoupage = (
             analyze_scenes(
@@ -634,12 +951,12 @@ async def upload_video(
 
 
         # ====================================================
-        # 12. TIMELINE
+        # 13. TIMELINE
         # ====================================================
 
         analyse_timeline = (
             build_timeline(
-                analyse_decoupage,
+                analyse_decoupage
             )
         )
 
@@ -653,13 +970,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 13. REMONTAGE V5.3
+        # 14. REMONTAGE
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "remontage V5.3..."
-        )
 
         analyse_remontage = (
             analyze_remontage(
@@ -685,13 +997,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 14. ANALYSE SÉMANTIQUE V5.4
+        # 15. ANALYSE SÉMANTIQUE
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "analyse sémantique..."
-        )
 
         analyse_semantique = (
             analyze_semantic_segments(
@@ -716,13 +1023,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 15. FUSION TECHNIQUE + SÉMANTIQUE
+        # 16. FUSION SÉMANTIQUE
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "fusion V5.4..."
-        )
 
         analyse_remontage_v5_4 = (
             merge_semantic_remontage(
@@ -741,13 +1043,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 16. GLOBAL REMIX PLAN V3
+        # 17. PLAN REMIX GLOBAL
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "création Global Remix V3..."
-        )
 
         plan_remix_v3 = (
             build_global_remix_plan(
@@ -769,13 +1066,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 17. GÉNÉRATION MP4 REMIX
+        # 18. GÉNÉRATION VIDÉO REMIXÉE
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "génération MP4..."
-        )
 
         remix_path = (
             OUTPUT_DIR
@@ -801,13 +1093,8 @@ async def upload_video(
 
 
         # ====================================================
-        # 18. RAPPORT FINAL
+        # 19. RAPPORT FINAL
         # ====================================================
-
-        print(
-            "VIRALCOACH : "
-            "construction rapport..."
-        )
 
         rapport = (
             build_final_report(
@@ -832,10 +1119,6 @@ async def upload_video(
             )
         )
 
-
-        # ====================================================
-        # 19. DONNÉES REMONTAGE
-        # ====================================================
 
         rapport[
             "remontage_v5_1"
@@ -863,7 +1146,7 @@ async def upload_video(
 
 
         # ====================================================
-        # 20. INFORMATIONS TECHNIQUES
+        # 20. INFOS TECHNIQUES
         # ====================================================
 
         rapport[
@@ -911,22 +1194,70 @@ async def upload_video(
 
 
         # ====================================================
-        # 21. RÉSULTAT
+        # 21. INFOS COMPTE
         # ====================================================
 
+        rapport[
+            "account"
+        ] = {
+            "user_id":
+                user_id,
+
+            "email":
+                user.get(
+                    "email"
+                ),
+
+            "credits_remaining":
+                remaining_credits,
+
+            "plan":
+                profile.get(
+                    "plan",
+                    "free",
+                ),
+        }
+
+
         print(
-            "VIRALCOACH : "
-            "ANALYSE TERMINÉE"
+            "VIRALCOACH : ANALYSE TERMINÉE"
         )
 
         return rapport
 
 
     # ========================================================
-    # GESTION ERREURS
+    # ERREURS HTTP
+    # ========================================================
+
+    except HTTPException:
+
+        if (
+            credit_consumed
+            and user_id
+        ):
+
+            refund_credit(
+                user_id
+            )
+
+        raise
+
+
+    # ========================================================
+    # AUTRES ERREURS
     # ========================================================
 
     except Exception as error:
+
+        if (
+            credit_consumed
+            and user_id
+        ):
+
+            refund_credit(
+                user_id
+            )
 
         print(
             "ERREUR VIRALCOACH:",
@@ -943,7 +1274,7 @@ async def upload_video(
 
 
     # ========================================================
-    # FERMETURE FICHIER
+    # FERMETURE
     # ========================================================
 
     finally:
