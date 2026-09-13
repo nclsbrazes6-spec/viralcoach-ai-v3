@@ -170,7 +170,7 @@ def _text_y_position(
 
 def _viral_text(
     text: str,
-    max_chars_per_line: int = 22,
+    max_chars_per_line: int = 14,
     max_lines: int = 3,
 ) -> str:
 
@@ -202,7 +202,7 @@ def _viral_text(
     wrapped = textwrap.wrap(
         cleaned,
         width=max_chars_per_line,
-        break_long_words=False,
+        break_long_words=True,
         break_on_hyphens=False,
     )
 
@@ -363,19 +363,19 @@ def _extract_segment(
         # Le texte reste dans une zone sûre même en 9:16.
         if is_hook:
 
-            font_size = "w/18"
-            border_width = 5
-            shadow_x = 3
-            shadow_y = 3
-            box_border = 16
-
-        else:
-
-            font_size = "w/20"
+            font_size = "w/30"
             border_width = 4
             shadow_x = 2
             shadow_y = 2
-            box_border = 14
+            box_border = 8
+
+        else:
+
+            font_size = "w/34"
+            border_width = 3
+            shadow_x = 2
+            shadow_y = 2
+            box_border = 7
 
         drawtext_filter = (
             "drawtext="
@@ -402,7 +402,10 @@ def _extract_segment(
             "boxcolor=black@0.30:"
             f"boxborderw={box_border}:"
 
-            # Centré horizontalement
+            # Garde-fou FFmpeg : maintient le texte dans l’image
+            "fix_bounds=1:"
+
+            # Centré horizontalement avec marge de sécurité
             "x=(w-text_w)/2:"
 
             # Espacement entre lignes

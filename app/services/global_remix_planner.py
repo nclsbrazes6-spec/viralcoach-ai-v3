@@ -343,7 +343,8 @@ TEXTES ÉCRAN
 - Les autres plans doivent rester naturels.
 - Le texte doit être court.
 - Maximum 3 lignes.
-- Maximum 22 caractères environ par ligne.
+- Maximum 14 caractères environ par ligne.
+- Maximum 42 caractères au total.
 - Aucun mot ni caractère ne doit sortir de l'image.
 - Le texte doit rester dans une zone sûre de l'image.
 - Pas de phrase longue à l'écran.
@@ -441,6 +442,36 @@ Réponds UNIQUEMENT avec un JSON valide :
 }}
 """.strip()
 
+
+
+# ============================================================
+# GARDE-FOU TEXTE : PHRASES COURTES
+# ============================================================
+
+def _short_screen_text(
+    value: Any,
+    max_chars: int = 42,
+) -> str:
+
+    text = _clean_text(value)
+
+    if not text:
+        return ""
+
+    if len(text) <= max_chars:
+        return text
+
+    shortened = text[:max_chars].rsplit(
+        " ",
+        1,
+    )[0].strip()
+
+    if not shortened:
+        shortened = text[:max_chars].strip()
+
+    return shortened.rstrip(
+        " .,:;!?-"
+    ) + "..."
 
 
 # ============================================================
@@ -845,7 +876,7 @@ def _normalize_plan(
                 ),
 
                 "texte_ecran": (
-                    _clean_text(
+                    _short_screen_text(
                         segment.get(
                             "texte_ecran"
                         )
@@ -998,7 +1029,7 @@ def _normalize_plan(
             dict,
         ):
 
-            hook_text = _clean_text(
+            hook_text = _short_screen_text(
                 hook_final.get(
                     "texte"
                 )
