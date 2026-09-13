@@ -285,9 +285,13 @@ entre {target_min:.2f} et {target_max:.2f} secondes.
 RÈGLE ABSOLUE DE DURÉE :
 - Ne supprime JAMAIS plus de 10 % de la durée originale.
 - Conserve au minimum 90 % de la vidéo source.
+- Vise idéalement 92 à 96 % de contenu source conservé.
+- Ne dépasse jamais 10 % de suppression.
 - Si un passage est faible, préfère le RACCOURCIR légèrement
   ou l'ACCÉLÉRER plutôt que le supprimer.
 - Une coupe totale doit rester exceptionnelle.
+- Évite les micro-coupes : aucun plan final inférieur à 0,65 s
+  sauf nécessité absolue de hook.
 - Préserve le sens, la continuité et le storytelling.
 
 MEILLEUR HOOK SÉMANTIQUE :
@@ -301,7 +305,7 @@ ANALYSE TECHNIQUE :
 
 
 ============================================================
-RÈGLES DE REMONTAGE V3.1
+RÈGLES DE REMONTAGE V3.6
 ============================================================
 
 HOOK
@@ -330,9 +334,12 @@ STORYTELLING
 - Fais arriver le bénéfice ou la valeur forte le plus tôt possible.
 - Ordre recommandé :
   hook → valeur → preuve → conclusion / CTA.
-- Tu peux réorganiser les passages uniquement
-  si cela améliore réellement le storytelling.
+- Tu peux déplacer UN SEUL passage en ouverture si c'est
+  clairement le meilleur hook.
+- Après le hook, reviens à une chronologie naturelle.
+- Ne multiplie pas les allers-retours dans la vidéo.
 - Ne duplique jamais un passage.
+- Évite deux coupes consécutives de moins d'une seconde.
 
 TEXTES ÉCRAN
 
@@ -352,16 +359,19 @@ TEXTES ÉCRAN
 ZOOMS
 
 - Maximum 2 zooms sur toute la vidéo.
-- Zoom maximum : 1.12.
-- Un seul zoom fort sur le moment visuel principal.
+- Zoom maximum : 1.08.
+- Utilise plutôt 1.04 à 1.06 pour rester naturel.
+- Un seul zoom plus marqué sur le moment visuel principal.
 - Si le zoom n'apporte rien, laisse 1.0.
 
 VITESSE
 
 - Vitesse normale par défaut : 1.0.
 - Accélération légère possible :
-  entre 1.05 et 1.15.
-- Maximum absolu : 1.20.
+  entre 1.03 et 1.10.
+- Maximum absolu : 1.10.
+- N'accélère que les passages réellement lents.
+- Maximum 3 passages accélérés sur toute la vidéo.
 - N'accélère pas une voix si cela devient artificiel.
 
 TRANSITIONS
@@ -389,7 +399,7 @@ FORMAT JSON OBLIGATOIRE
 Réponds UNIQUEMENT avec un JSON valide :
 
 {{
-  "version": "5.5-remix-v3.1",
+  "version": "5.5-remix-v3.6",
 
   "strategie_globale": "",
 
@@ -450,7 +460,7 @@ Réponds UNIQUEMENT avec un JSON valide :
 
 def _short_screen_text(
     value: Any,
-    max_chars: int = 42,
+    max_chars: int = 36,
 ) -> str:
 
     text = _clean_text(value)
@@ -728,6 +738,142 @@ def _enforce_minimum_coverage(
     return result
 
 
+
+# ============================================================
+# GARDE-FOUS QUALITÉ REMIX
+# ============================================================
+
+def _overlap_duration(
+    a_start: float,
+    a_end: float,
+    b_start: float,
+    b_end: float,
+) -> float:
+
+    return max(
+        0.0,
+        min(a_end, b_end)
+        - max(a_start, b_start),
+    )
+
+
+def _dedupe_and_clean_segments(
+    segments: list[dict],
+) -> list[dict]:
+
+    """
+    Supprime les duplications évidentes et évite les micro-segments.
+    Le premier segment conserve la priorité car il peut être le hook.
+    """
+
+    cleaned: list[dict] = []
+    covered: list[tuple[float, float]] = []
+
+    for segment in segments:
+
+        if not isinstance(segment, dict):
+            continue
+
+        start = _number(
+            segment.get("debut_source"),
+            0.0,
+        )
+        end = _number(
+            segment.get("fin_source"),
+            start,
+        )
+
+        duration = max(
+            0.0,
+            end - start,
+        )
+
+        if duration < 0.35:
+            continue
+
+        overlap = sum(
+            _overlap_duration(
+                start,
+                end,
+                old_start,
+                old_end,
+            )
+            for old_start, old_end in covered
+        )
+
+        # Si 70 % ou plus du passage a déjà été utilisé,
+        # le conserver créerait une répétition visible.
+        if (
+            duration > 0
+            and overlap / duration >= 0.70
+        ):
+            continue
+
+        # Évite les micro-coupes sauf pour le tout premier hook.
+        if cleaned and duration < 0.65:
+            continue
+
+        cleaned.append(
+            segment
+        )
+
+        covered.append(
+            (start, end)
+        )
+
+    for index, segment in enumerate(
+        cleaned,
+        start=1,
+    ):
+        segment["ordre_final"] = index
+
+    return cleaned
+
+
+def _limit_speed_events(
+    segments: list[dict],
+    max_events: int = 3,
+) -> list[dict]:
+
+    candidates = []
+
+    for index, segment in enumerate(
+        segments
+    ):
+
+        speed = _number(
+            segment.get("vitesse"),
+            1.0,
+        )
+
+        if speed > 1.001:
+            candidates.append(
+                (
+                    speed,
+                    index,
+                )
+            )
+
+    candidates.sort(
+        reverse=True
+    )
+
+    allowed = {
+        index
+        for _, index
+        in candidates[:max_events]
+    }
+
+    for index, segment in enumerate(
+        segments
+    ):
+
+        if index not in allowed:
+            segment["vitesse"] = 1.0
+
+    return segments
+
+
 # ============================================================
 # NORMALISATION DU PLAN
 # ============================================================
@@ -806,7 +952,7 @@ def _normalize_plan(
                     ),
                     1.0,
                 ),
-                1.20,
+                1.10,
             ),
         )
 
@@ -823,7 +969,7 @@ def _normalize_plan(
                     ),
                     1.0,
                 ),
-                1.12,
+                1.08,
             ),
         )
 
@@ -910,6 +1056,22 @@ def _normalize_plan(
     final_segments = _enforce_minimum_coverage(
         final_segments,
         duration_seconds,
+    )
+
+    final_segments = _dedupe_and_clean_segments(
+        final_segments
+    )
+
+    # Après déduplication, on vérifie une deuxième fois
+    # que la règle des 90 % est toujours respectée.
+    final_segments = _enforce_minimum_coverage(
+        final_segments,
+        duration_seconds,
+    )
+
+    final_segments = _limit_speed_events(
+        final_segments,
+        max_events=3,
     )
 
     # ========================================================
@@ -1148,7 +1310,7 @@ def _normalize_plan(
 
         print(
             "\n"
-            "REMIX V3.1 : "
+            "REMIX V3.6 : "
             "GARDE-FOU DURÉE DÉCLENCHÉ "
             f"({ratio_kept * 100:.1f}% conservé)"
             "\n"
@@ -1186,7 +1348,7 @@ def _normalize_plan(
     return {
 
         "version": (
-            "5.5-remix-v3.1"
+            "5.5-remix-v3.6"
         ),
 
         "strategie_globale": (
@@ -1307,7 +1469,7 @@ def build_global_remix_plan(
 
         print(
             "\n"
-            "========== REMIX V3.1 GLOBAL RAW =========="
+            "========== REMIX V3.6 GLOBAL RAW =========="
         )
 
         print(
@@ -1345,7 +1507,7 @@ def build_global_remix_plan(
     except Exception as error:
 
         print(
-            "ERREUR REMIX V3.1 GLOBAL:",
+            "ERREUR REMIX V3.6 GLOBAL:",
             repr(error),
         )
 
@@ -1354,7 +1516,7 @@ def build_global_remix_plan(
             "status": "error",
 
             "version": (
-                "5.5-remix-v3.1"
+                "5.5-remix-v3.6"
             ),
 
             "model": chosen_model,

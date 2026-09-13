@@ -262,7 +262,7 @@ def _extract_segment(
         0.50,
         min(
             float(speed or 1.0),
-            2.0,
+            1.10,
         ),
     )
 
@@ -270,7 +270,7 @@ def _extract_segment(
         1.0,
         min(
             float(zoom or 1.0),
-            1.20,
+            1.08,
         ),
     )
 
@@ -363,16 +363,16 @@ def _extract_segment(
         # Le texte reste dans une zone sûre même en 9:16.
         if is_hook:
 
-            font_size = "w/30"
-            border_width = 4
+            font_size = "w/21"
+            border_width = 5
             shadow_x = 2
             shadow_y = 2
             box_border = 8
 
         else:
 
-            font_size = "w/34"
-            border_width = 3
+            font_size = "w/25"
+            border_width = 4
             shadow_x = 2
             shadow_y = 2
             box_border = 7
@@ -427,8 +427,20 @@ def _extract_segment(
     # AUDIO
     # --------------------------------------------------------
 
+    fade_duration = min(
+        0.03,
+        max(
+            0.0,
+            duration / max(speed, 0.01) / 6.0,
+        ),
+    )
+
     audio_filter = (
-        f"atempo={speed:.3f}"
+        f"atempo={speed:.3f},"
+        f"afade=t=in:st=0:d={fade_duration:.3f},"
+        f"afade=t=out:"
+        f"st=max(0,{duration / max(speed, 0.01):.3f}-{fade_duration:.3f}):"
+        f"d={fade_duration:.3f}"
     )
 
     # --------------------------------------------------------
@@ -566,8 +578,23 @@ def _concat_segments(
         "-i",
         str(concat_file),
 
-        "-c",
-        "copy",
+        "-c:v",
+        "libx264",
+
+        "-preset",
+        "veryfast",
+
+        "-crf",
+        "19",
+
+        "-pix_fmt",
+        "yuv420p",
+
+        "-c:a",
+        "aac",
+
+        "-b:a",
+        "192k",
 
         "-movflags",
         "+faststart",
@@ -1095,7 +1122,7 @@ def generate_global_remix_video(
                         ),
                         1.0,
                     ),
-                    1.20,
+                    1.10,
                 ),
             )
 
@@ -1108,7 +1135,7 @@ def generate_global_remix_video(
                         ),
                         1.0,
                     ),
-                    1.12,
+                    1.08,
                 ),
             )
 
@@ -1276,7 +1303,7 @@ def generate_global_remix_video(
         "version": (
             plan_remix_v3.get(
                 "version",
-                "5.5-remix-v3.1",
+                "5.5-remix-v3.6",
             )
         ),
 
