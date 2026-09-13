@@ -409,7 +409,7 @@ def _extract_segment(
             "x=(w-text_w)/2:"
 
             # Espacement entre lignes
-            "line_spacing=h/120:"
+            "line_spacing=10:"
 
             # Position verticale
             f"y={y_position}"
