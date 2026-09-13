@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 import tempfile
+import textwrap
 from typing import Any
 
 
@@ -152,13 +153,13 @@ def _text_y_position(
         "haut",
         "top",
     }:
-        return "h*0.16"
+        return "h*0.18"
 
     if position in {
         "bas",
         "bottom",
     }:
-        return "h*0.76"
+        return "h*0.70"
 
     return "(h-text_h)/2"
 
@@ -169,35 +170,71 @@ def _text_y_position(
 
 def _viral_text(
     text: str,
+    max_chars_per_line: int = 22,
+    max_lines: int = 3,
 ) -> str:
 
     """
-    Transforme le texte proposé par Gemini
-    en texte écran plus TikTok/Reels.
+    Transforme le texte proposé par Gemini en texte écran
+    TikTok/Reels lisible et sûr.
+
+    - maximum 3 lignes ;
+    - environ 22 caractères par ligne ;
+    - pas de coupe au milieu d'un mot ;
+    - le texte entier reste dans l'image.
     """
 
     cleaned = (
-        str(
-            text
-            or ""
+        " ".join(
+            str(
+                text
+                or ""
+            )
+            .strip()
+            .upper()
+            .split()
         )
-        .strip()
-        .upper()
     )
 
     if not cleaned:
         return ""
 
-    # Évite les textes beaucoup trop longs.
-    if len(cleaned) > 60:
+    wrapped = textwrap.wrap(
+        cleaned,
+        width=max_chars_per_line,
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
 
-        cleaned = (
-            cleaned[:57]
-            .rstrip()
+    if not wrapped:
+        return ""
+
+    if len(wrapped) > max_lines:
+
+        kept = wrapped[:max_lines]
+
+        last_line = kept[-1]
+
+        if len(last_line) > max_chars_per_line - 3:
+            last_line = (
+                last_line[
+                    : max_chars_per_line - 3
+                ]
+                .rstrip()
+            )
+
+        kept[-1] = (
+            last_line.rstrip(
+                " .,:;!?-"
+            )
             + "..."
         )
 
-    return cleaned
+        wrapped = kept
+
+    return "\n".join(
+        wrapped
+    )
 
 
 # ============================================================
@@ -322,22 +359,23 @@ def _extract_segment(
             )
         )
 
-        # Hook = plus gros
+        # Taille basée sur la largeur de l'image.
+        # Le texte reste dans une zone sûre même en 9:16.
         if is_hook:
 
-            font_size = "h/10"
-            border_width = 7
-            shadow_x = 5
-            shadow_y = 5
-            box_border = 20
-
-        else:
-
-            font_size = "h/14"
+            font_size = "w/18"
             border_width = 5
             shadow_x = 3
             shadow_y = 3
-            box_border = 15
+            box_border = 16
+
+        else:
+
+            font_size = "w/20"
+            border_width = 4
+            shadow_x = 2
+            shadow_y = 2
+            box_border = 14
 
         drawtext_filter = (
             "drawtext="
@@ -366,6 +404,9 @@ def _extract_segment(
 
             # Centré horizontalement
             "x=(w-text_w)/2:"
+
+            # Espacement entre lignes
+            "line_spacing=h/120:"
 
             # Position verticale
             f"y={y_position}"

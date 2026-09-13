@@ -11,6 +11,9 @@ DEFAULT_MODEL = os.getenv(
     "gemini-3.5-flash-lite",
 ).strip()
 
+MAX_REMOVAL_PERCENT = 10.0
+MIN_KEEP_RATIO = 1.0 - (MAX_REMOVAL_PERCENT / 100.0)
+
 
 # ============================================================
 # OUTILS
@@ -251,12 +254,11 @@ def _build_prompt(
 
     target_min = (
         duration_seconds
-        * 0.60
+        * MIN_KEEP_RATIO
     )
 
     target_max = (
         duration_seconds
-        * 0.80
     )
 
     return f"""
@@ -280,9 +282,13 @@ DURÉE ORIGINALE :
 DURÉE FINALE RECHERCHÉE :
 entre {target_min:.2f} et {target_max:.2f} secondes.
 
-Si une réduction aussi forte coupe une phrase
-ou détruit le storytelling,
-tu peux conserver légèrement plus.
+RÈGLE ABSOLUE DE DURÉE :
+- Ne supprime JAMAIS plus de 10 % de la durée originale.
+- Conserve au minimum 90 % de la vidéo source.
+- Si un passage est faible, préfère le RACCOURCIR légèrement
+  ou l'ACCÉLÉRER plutôt que le supprimer.
+- Une coupe totale doit rester exceptionnelle.
+- Préserve le sens, la continuité et le storytelling.
 
 MEILLEUR HOOK SÉMANTIQUE :
 {hook_json}
@@ -336,6 +342,10 @@ TEXTES ÉCRAN
 - Priorité 3 : CTA final.
 - Les autres plans doivent rester naturels.
 - Le texte doit être court.
+- Maximum 3 lignes.
+- Maximum 22 caractères environ par ligne.
+- Aucun mot ni caractère ne doit sortir de l'image.
+- Le texte doit rester dans une zone sûre de l'image.
 - Pas de phrase longue à l'écran.
 
 ZOOMS
@@ -430,6 +440,261 @@ Réponds UNIQUEMENT avec un JSON valide :
   "resume": ""
 }}
 """.strip()
+
+
+
+# ============================================================
+# GARDE-FOU DURÉE : MAXIMUM 10 % SUPPRIMÉ
+# ============================================================
+
+def _merge_intervals(
+    intervals: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+
+    valid = sorted(
+        (
+            max(0.0, float(start)),
+            max(0.0, float(end)),
+        )
+        for start, end in intervals
+        if float(end) > float(start)
+    )
+
+    if not valid:
+        return []
+
+    merged = [valid[0]]
+
+    for start, end in valid[1:]:
+
+        last_start, last_end = merged[-1]
+
+        if start <= last_end + 0.001:
+            merged[-1] = (
+                last_start,
+                max(last_end, end),
+            )
+        else:
+            merged.append(
+                (start, end)
+            )
+
+    return merged
+
+
+def _covered_source_duration(
+    segments: list[dict],
+) -> float:
+
+    intervals = [
+        (
+            _number(
+                segment.get("debut_source"),
+                0.0,
+            ),
+            _number(
+                segment.get("fin_source"),
+                0.0,
+            ),
+        )
+        for segment in segments
+        if isinstance(segment, dict)
+    ]
+
+    return sum(
+        end - start
+        for start, end
+        in _merge_intervals(intervals)
+    )
+
+
+def _missing_intervals(
+    segments: list[dict],
+    duration_seconds: float,
+) -> list[tuple[float, float]]:
+
+    duration_seconds = max(
+        0.0,
+        float(duration_seconds),
+    )
+
+    covered = _merge_intervals(
+        [
+            (
+                _number(
+                    segment.get("debut_source"),
+                    0.0,
+                ),
+                _number(
+                    segment.get("fin_source"),
+                    0.0,
+                ),
+            )
+            for segment in segments
+            if isinstance(segment, dict)
+        ]
+    )
+
+    gaps = []
+    cursor = 0.0
+
+    for start, end in covered:
+
+        start = min(
+            duration_seconds,
+            max(0.0, start),
+        )
+
+        end = min(
+            duration_seconds,
+            max(start, end),
+        )
+
+        if start > cursor + 0.001:
+            gaps.append(
+                (cursor, start)
+            )
+
+        cursor = max(
+            cursor,
+            end,
+        )
+
+    if cursor < duration_seconds - 0.001:
+        gaps.append(
+            (
+                cursor,
+                duration_seconds,
+            )
+        )
+
+    return gaps
+
+
+def _enforce_minimum_coverage(
+    segments: list[dict],
+    duration_seconds: float,
+) -> list[dict]:
+
+    """
+    Garde-fou indépendant de Gemini :
+    au moins 90 % de la vidéo source doit rester couverte.
+    """
+
+    if duration_seconds <= 0:
+        return segments
+
+    minimum_duration = (
+        duration_seconds
+        * MIN_KEEP_RATIO
+    )
+
+    covered_duration = (
+        _covered_source_duration(
+            segments
+        )
+    )
+
+    if covered_duration >= minimum_duration - 0.001:
+        return segments
+
+    missing_needed = (
+        minimum_duration
+        - covered_duration
+    )
+
+    gaps = _missing_intervals(
+        segments,
+        duration_seconds,
+    )
+
+    restored = []
+
+    for gap_start, gap_end in gaps:
+
+        if missing_needed <= 0.001:
+            break
+
+        available = (
+            gap_end - gap_start
+        )
+
+        take = min(
+            available,
+            missing_needed,
+        )
+
+        if take <= 0.001:
+            continue
+
+        restored.append(
+            {
+                "ordre_final": 0,
+                "ordre_source": 0,
+                "debut_source": round(
+                    gap_start,
+                    3,
+                ),
+                "fin_source": round(
+                    gap_start + take,
+                    3,
+                ),
+                "decision": "CONSERVER",
+                "raison": (
+                    "Restauré automatiquement : "
+                    "limite de suppression de 10 %."
+                ),
+                "vitesse": 1.0,
+                "zoom": 1.0,
+                "texte_ecran": "",
+                "position_texte": "centre",
+                "transition": "cut",
+            }
+        )
+
+        missing_needed -= take
+
+    if not restored:
+        return segments
+
+    first = segments[0] if segments else None
+    remaining = (
+        segments[1:]
+        if first
+        else []
+    )
+
+    combined = (
+        remaining
+        + restored
+    )
+
+    combined.sort(
+        key=lambda item: (
+            _number(
+                item.get("debut_source"),
+                0.0,
+            ),
+            _number(
+                item.get("fin_source"),
+                0.0,
+            ),
+        )
+    )
+
+    result = (
+        [first] + combined
+        if first
+        else combined
+    )
+
+    for index, segment in enumerate(
+        result,
+        start=1,
+    ):
+        segment["ordre_final"] = index
+
+    return result
 
 
 # ============================================================
@@ -606,6 +871,15 @@ def _normalize_plan(
                 ),
             }
         )
+
+    # ========================================================
+    # GARDE-FOU : AU MOINS 90 % DE LA SOURCE CONSERVÉE
+    # ========================================================
+
+    final_segments = _enforce_minimum_coverage(
+        final_segments,
+        duration_seconds,
+    )
 
     # ========================================================
     # LIMITATION DES TEXTES
@@ -839,12 +1113,12 @@ def _normalize_plan(
         else 1
     )
 
-    if ratio_kept > 0.85:
+    if ratio_kept < MIN_KEEP_RATIO:
 
         print(
             "\n"
             "REMIX V3.1 : "
-            "PLAN TROP CONSERVATEUR "
+            "GARDE-FOU DURÉE DÉCLENCHÉ "
             f"({ratio_kept * 100:.1f}% conservé)"
             "\n"
         )
