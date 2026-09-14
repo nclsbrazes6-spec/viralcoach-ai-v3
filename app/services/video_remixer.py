@@ -427,19 +427,28 @@ def _extract_segment(
     # AUDIO
     # --------------------------------------------------------
 
+    output_audio_duration = (
+        duration / max(speed, 0.01)
+    )
+
     fade_duration = min(
         0.03,
         max(
             0.0,
-            duration / max(speed, 0.01) / 6.0,
+            output_audio_duration / 6.0,
         ),
+    )
+
+    fade_out_start = max(
+        0.0,
+        output_audio_duration - fade_duration,
     )
 
     audio_filter = (
         f"atempo={speed:.3f},"
         f"afade=t=in:st=0:d={fade_duration:.3f},"
         f"afade=t=out:"
-        f"st=max(0,{duration / max(speed, 0.01):.3f}-{fade_duration:.3f}):"
+        f"st={fade_out_start:.3f}:"
         f"d={fade_duration:.3f}"
     )
 
